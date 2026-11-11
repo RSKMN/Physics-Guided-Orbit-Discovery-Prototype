@@ -1,0 +1,37 @@
+{
+    "simulation_name": "synthetic_asteroid",
+    "run_utc": "2026-10-24T07:42:13.861756+00:00",
+    "python_version": "3.13.9",
+    "rebound_version": "5.2.2",
+    "number_of_samples": 1001,
+    "duration_years": 5.0,
+    "output_interval_days": 1.82625,
+    "integrator": "ias15",
+    "integrator_epsilon": 1e-12,
+    "gravitational_bodies": [
+        "Sun",
+        "Mercury",
+        "Venus",
+        "Earth",
+        "Jupiter"
+    ],
+    "position_reference": "Sun-relative",
+    "position_unit": "AU",
+    "velocity_unit": "AU/year",
+    "time_unit": "year",
+    "initial_conditions": {
+        "mode": "orbital_elements",
+        "semi_major_axis_au": 2.5,
+        "eccentricity": 0.2,
+        "inclination_deg": 0.0,
+        "longitude_ascending_node_deg": 0.0,
+        "argument_periapsis_deg": 0.0,
+        "mean_anomaly_deg": 0.0
+    },
+    "coordinate_frame": "heliocentric_ecliptic",
+    "epoch_jd_tdb": null,
+    "state_type": "simulated_ground_truth",
+    "massless_asteroid": true,
+    "output_interval_days_requested": 1.82625,
+    "final_time_years": 5.0
+}

@@ -1,0 +1,101 @@
+# ---------------------------------------------------------------------------
+# Python bytecode, caches and test tooling
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+
+# ---------------------------------------------------------------------------
+# Virtual environments
+# ---------------------------------------------------------------------------
+# Local interpreter environments are machine-specific and reproducible from
+# the dependency files, so they are never committed.
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ---------------------------------------------------------------------------
+# Packaging and build output
+# ---------------------------------------------------------------------------
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.manifest
+*.spec
+
+# ---------------------------------------------------------------------------
+# IDE, editor and operating-system files
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ---------------------------------------------------------------------------
+# Logs, temporary files and local secrets
+# ---------------------------------------------------------------------------
+logs/
+*.log
+*.tmp
+*.temp
+*.bak
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# ---------------------------------------------------------------------------
+# Generated figures and other regenerable output
+# ---------------------------------------------------------------------------
+# Figure files are regenerated from the tracked trajectories and configs by
+# the simulator and comparison scripts. The underlying CSV, JSON and metadata
+# files remain tracked.
+data/runs/*/*.png
+results/component-2/figures/
+plots/
+artifacts/
+
+# ---------------------------------------------------------------------------
+# Deliberately NOT ignored
+# ---------------------------------------------------------------------------
+# Do not add global *.json or *.csv rules. The scientific configuration files,
+# run/observation metadata, reference trajectories, observation tables and
+# validation CSVs are part of the reproducible 0.2.0 baseline and must remain
+# trackable. Use path-specific rules above for generated figures instead.

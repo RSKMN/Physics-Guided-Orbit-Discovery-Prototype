@@ -1,0 +1,47 @@
+{
+    "observation_name": "synthetic_asteroid_eccentric_observations",
+    "input_trajectory": "data\\runs\\synthetic_asteroid_eccentric\\trajectory.csv",
+    "configuration_file": "configs\\synthetic_observations_eccentric.json",
+    "state_type": "synthetic_observations",
+    "number_of_observations": 262,
+    "observation_schedule": {
+        "cadence_days": 7.0,
+        "start_day": 0.0,
+        "end_day": 1826.25
+    },
+    "observer": {
+        "model": "idealized_circular",
+        "orbital_radius_au": 1.0,
+        "orbital_period_years": 1.0,
+        "initial_phase_deg": 90.0
+    },
+    "coordinates": {
+        "input_frame": "heliocentric_ecliptic",
+        "output_frame": "equatorial",
+        "obliquity_deg": 23.43928,
+        "ra_unit": "degrees",
+        "dec_unit": "degrees"
+    },
+    "measurement_noise": {
+        "model": "gaussian",
+        "sigma_ra_cosdec_arcsec": 0.5,
+        "sigma_dec_arcsec": 0.5,
+        "random_seed": 42
+    },
+    "coordinate_units": {
+        "time": "days and years",
+        "right_ascension": "degrees",
+        "declination": "degrees",
+        "angular_uncertainty": "arcseconds",
+        "distance": "AU"
+    },
+    "assumptions": [
+        "Idealized circular Earth-like observer orbit",
+        "Observer orbit lies in the heliocentric ecliptic plane",
+        "Asteroid positions are interpolated from simulated ground truth",
+        "Ecliptic coordinates are rotated using the configured obliquity",
+        "Gaussian angular measurement noise is applied",
+        "Observation times are elapsed simulation times, not real calendar dates"
+    ],
+    "output_file": "observations.csv"
+}
