@@ -89,7 +89,7 @@ secrets/
 # files remain tracked.
 data/runs/*/*.png
 results/component-2/figures/
-plots/
+# plots/
 artifacts/
 
 # ---------------------------------------------------------------------------

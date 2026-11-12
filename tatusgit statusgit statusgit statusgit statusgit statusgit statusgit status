@@ -1,0 +1,106 @@
+ check_cols.py                                      |   26 [32m+[m
+ check_cols2.py                                     |   16 [32m+[m
+ check_csv.py                                       |   25 [32m+[m
+ check_dir.py                                       |    2 [32m+[m
+ check_git.py                                       |   10 [32m+[m
+ check_import.py                                    |   17 [32m+[m
+ check_read.py                                      |   22 [32m+[m
+ check_sections.py                                  |   32 [32m+[m
+ csv_check_result.txt                               |    2 [32m+[m
+ csv_cols.txt                                       |    1 [32m+[m
+ csv_cols_result.txt                                |    7 [32m+[m
+ data/repeatability/run_a/metadata.json             |    4 [32m+[m[31m-[m
+ data/repeatability/run_a/trajectory_3d.png         |  Bin [31m0[m -> [32m169675[m bytes
+ data/repeatability/run_a/trajectory_xy.png         |  Bin [31m0[m -> [32m81349[m bytes
+ data/repeatability/run_b/metadata.json             |    4 [32m+[m[31m-[m
+ data/repeatability/run_b/trajectory_3d.png         |  Bin [31m0[m -> [32m169675[m bytes
+ data/repeatability/run_b/trajectory_xy.png         |  Bin [31m0[m -> [32m81349[m bytes
+ data/tolerance_tests/eps_1e12/metadata.json        |    4 [32m+[m[31m-[m
+ data/tolerance_tests/eps_1e12/trajectory_3d.png    |  Bin [31m0[m -> [32m169675[m bytes
+ data/tolerance_tests/eps_1e12/trajectory_xy.png    |  Bin [31m0[m -> [32m81349[m bytes
+ data/tolerance_tests/eps_1e13/metadata.json        |    4 [32m+[m[31m-[m
+ data/tolerance_tests/eps_1e13/trajectory_3d.png    |  Bin [31m0[m -> [32m169675[m bytes
+ data/tolerance_tests/eps_1e13/trajectory_xy.png    |  Bin [31m0[m -> [32m81349[m bytes
+ data/tolerance_tests/eps_1e9/metadata.json         |    4 [32m+[m[31m-[m
+ data/tolerance_tests/eps_1e9/trajectory_3d.png     |  Bin [31m0[m -> [32m169675[m bytes
+ data/tolerance_tests/eps_1e9/trajectory_xy.png     |  Bin [31m0[m -> [32m81349[m bytes
+ debug_csv.py                                       |   24 [32m+[m
+ debug_output.txt                                   |    8 [32m+[m
+ debug_results.txt                                  |    0
+ debug_test.py                                      |   16 [32m+[m
+ debug_test2.py                                     |   16 [32m+[m
+ debug_type.py                                      |   54 [32m+[m
+ direct_debug.txt                                   |    0
+ direct_test.py                                     |   58 [32m+[m
+ docs/development/PHASE_1_FINAL_AUDIT.md            |  223 [32m+++[m
+ docs/development/PHASE_1_STEP_1_ASSESSMENT.md      | 1969 [32m++++++++++++++++++++[m
+ docs/development/PHASE_1_STEP_2_CORE_ASSESSMENT.md |  662 [32m+++++++[m
+ .../PHASE_1_STEP_3_2_1_INSTALL_ASSESSMENT.md       |  364 [32m++++[m
+ .../PHASE_1_STEP_3_2_2_INSTALL_VALIDATION.md       |  323 [32m++++[m
+ ...ASE_1_STEP_3_2_3_SCHEDULE_OBSERVER_MIGRATION.md |  294 [32m+++[m
+ .../PHASE_1_STEP_3_3_1_FRAMES_NOISE_MIGRATION.md   |  351 [32m++++[m
+ .../PHASE_1_STEP_3_4_1_LOADER_MIGRATION.md         |  349 [32m++++[m
+ .../PHASE_1_STEP_3_5_1_GENERATOR_ASSESSMENT.md     | 1275 [32m+++++++++++++[m
+ .../PHASE_1_STEP_3_5_2_GENERATOR_MIGRATION.md      |  513 [32m+++++[m
+ .../PHASE_1_STEP_3_COMPONENT2_ASSESSMENT.md        | 1511 [32m+++++++++++++++[m
+ .../development/PHASE_1_STEP_4_1_CLI_ASSESSMENT.md |  326 [32m++++[m
+ docs/development/PHASE_1_STEP_4_2_CLI_PROTOTYPE.md |  191 [32m++[m
+ .../PHASE_1_STEP_4_3_OBSERVE_COMMAND.md            |  156 [32m++[m
+ .../PHASE_1_STEP_4_4_1_SIMULATE_ASSESSMENT.md      |  243 [32m+++[m
+ .../PHASE_1_STEP_4_4_2_SIMULATE_COMMAND.md         |  188 [32m++[m
+ .../PHASE_1_STEP_4_5_1_COMPARE_ASSESSMENT.md       |  289 [32m+++[m
+ .../PHASE_1_STEP_4_5_2_COMPARE_COMMAND.md          |  112 [32m++[m
+ .../PHASE_1_STEP_4_6_VALIDATE_COMMAND.md           |  161 [32m++[m
+ ...7_CLI_INTEGRATION_AND_PHASE_1_STEP_5_TESTING.md |  227 [32m+++[m
+ investigate.py                                     |   53 [32m+[m
+ investigate_git.py                                 |   60 [32m+[m
+ investigate_git2.py                                |   30 [32m+[m
+ min_test.py                                        |   37 [32m+[m
+ output.txt                                         |    1 [32m+[m
+ pyproject.toml                                     |   37 [32m+[m
+ pytest_output.txt                                  |  Bin [31m0[m -> [32m3650[m bytes
+ read_csv_test.py                                   |   12 [32m+[m
+ read_out.txt                                       |    8 [32m+[m
+ restore.bat                                        |    1 [32m+[m
+ run_all_pytest.py                                  |   20 [32m+[m
+ run_pytest.py                                      |   16 [32m+[m
+ run_tests.py                                       |   16 [32m+[m
+ src/coordinate_converter.py                        |   76 [32m+[m[31m-[m
+ src/measurement_noise.py                           |   90 [32m+[m[31m-[m
+ src/observation_generator.py                       |  294 [32m+[m[31m--[m
+ src/observation_schedule.py                        |  115 [32m+[m[31m-[m
+ src/observer_model.py                              |   86 [32m+[m[31m-[m
+ src/orbit_discovery/__init__.py                    |    6 [32m+[m
+ src/orbit_discovery/cli/__init__.py                |  114 [32m++[m
+ src/orbit_discovery/cli/cmd_compare.py             |  439 [32m+++++[m
+ src/orbit_discovery/cli/cmd_observe.py             |  192 [32m++[m
+ src/orbit_discovery/cli/cmd_simulate.py            |  183 [32m++[m
+ src/orbit_discovery/cli/cmd_validate.py            |  362 [32m++++[m
+ .../component1_simulation/__init__.py              |    1 [32m+[m
+ .../component2_observations/__init__.py            |    1 [32m+[m
+ .../component2_observations/frames.py              |   69 [32m+[m
+ .../component2_observations/generator.py           |  285 [32m+++[m
+ .../component2_observations/loader.py              |  118 [32m++[m
+ .../component2_observations/noise.py               |   82 [32m+[m
+ .../component2_observations/observer.py            |   79 [32m+[m
+ .../component2_observations/schedule.py            |  108 [32m++[m
+ src/orbit_discovery/core/__init__.py               |    4 [32m+[m
+ src/orbit_discovery/core/constants.py              |   15 [32m+[m
+ src/orbit_discovery/core/paths.py                  |  223 [32m+++[m
+ src/trajectory_loader.py                           |  121 [32m+[m[31m-[m
+ test_all_modes.py                                  |   45 [32m+[m
+ test_cmd_compare.py                                |   18 [32m+[m
+ test_compare.py                                    |   75 [32m+[m
+ test_errors.py                                     |   41 [32m+[m
+ test_imports.py                                    |   11 [32m+[m
+ test_summary.txt                                   |  Bin [31m0[m -> [32m40898[m bytes
+ tests/test_component2_frames.py                    |  307 [32m+++[m
+ tests/test_component2_generator.py                 |  669 [32m+++++++[m
+ tests/test_component2_loader.py                    |  410 [32m++++[m
+ tests/test_component2_noise.py                     |  295 [32m+++[m
+ tests/test_component2_observer.py                  |  301 [32m+++[m
+ tests/test_component2_schedule.py                  |  384 [32m++++[m
+ tests/test_core_constants.py                       |   72 [32m+[m
+ tests/test_core_paths.py                           |  313 [32m++++[m
+ verify_hash.py                                     |   35 [32m+[m
+ 105 files changed, 15680 insertions(+), 733 deletions(-)
