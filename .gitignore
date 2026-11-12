@@ -88,7 +88,7 @@ secrets/
 # the simulator and comparison scripts. The underlying CSV, JSON and metadata
 # files remain tracked.
 data/runs/*/*.png
-results/component-2/figures/
+# results/component-2/figures/
 # plots/
 artifacts/
 
