@@ -1,7 +1,7 @@
 {
     "simulation_name": "synthetic_asteroid",
-    "run_utc": "2026-10-24T07:42:48.865355+00:00",
-    "python_version": "3.13.9",
+    "run_utc": "2026-11-12T15:08:41.554387+00:00",
+    "python_version": "3.13.12",
     "rebound_version": "5.2.2",
     "number_of_samples": 1001,
     "duration_years": 5.0,

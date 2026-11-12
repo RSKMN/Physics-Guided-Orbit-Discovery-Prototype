@@ -1,0 +1,1 @@
+@echo git checkout data/observations/synthetic_asteroid_observations/observations.csv

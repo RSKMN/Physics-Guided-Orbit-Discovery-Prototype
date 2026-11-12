@@ -1,0 +1,2 @@
+utf-16-le: Error - 'charmap' codec can't encode characters in position 11-50: character maps to <undefined>
+utf-16: Error - 'utf-16' codec can't decode bytes in position 0-1: Stream does not start with BOM

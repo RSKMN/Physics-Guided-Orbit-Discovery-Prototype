@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orbit-discovery"
+version = "0.2.0"
+description = "Physics-guided orbit discovery prototype"
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "rebound>=5.2,<6",
+    "numpy>=2.5,<3",
+    "pandas>=3.1,<4",
+    "matplotlib>=3.11,<4",
+]
+
+[project.optional-dependencies]
+network = [
+    "astroquery>=0.4.11,<0.5",
+]
+test = [
+    "pytest",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["orbit_discovery*"]
+namespaces = false
