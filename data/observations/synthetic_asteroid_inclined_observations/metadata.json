@@ -41,7 +41,17 @@
         "Asteroid positions are interpolated from simulated ground truth",
         "Ecliptic coordinates are rotated using the configured obliquity",
         "Gaussian angular measurement noise is applied",
-        "Observation times are elapsed simulation times, not real calendar dates"
+        "Observation times are elapsed simulation times, not real calendar dates",
+        "Ground truth is stored separately in ground_truth.json; ",
+        "observation CSV contains measurements only."
     ],
-    "output_file": "observations.csv"
+    "output_file": "observations.csv",
+    "ground_truth": {
+        "ground_truth_file": "ground_truth.json",
+        "number_of_observations": 262,
+        "true_ra_deg": true,
+        "true_dec_deg": true,
+        "includes_positions": true,
+        "includes_velocities": true
+    }
 }

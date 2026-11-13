@@ -1,3 +1,12 @@
+"""Synthetic astronomical observation generator.
+
+Generates noisy RA/Dec observations from an asteroid trajectory, with strict
+separation between measurement data (observation CSV) and ground-truth data
+(ground_truth JSON).  The observation dataset never contains hidden simulation
+truth, enabling truth-free orbit estimation (C3).
+"""
+
+from __future__ import annotations
 
 import argparse
 import json
@@ -46,13 +55,24 @@ def load_config(config_path):
 
 
 def generate_observations(config_path):
-    """Run the complete synthetic observation generation pipeline."""
+    """Run the complete synthetic observation generation pipeline.
 
-    config, config_file = load_config(config_path)
+    Returns
+    -------
+    observations : pandas.DataFrame
+        Measurement-only dataset written to ``observations.csv``.  Contains
+        ``obs_id``, ``time_years``, ``time_days``, ``ra_deg``, ``dec_deg``,
+        ``sigma_ra_cosdec_arcsec``, ``sigma_dec_arcsec``.  **Does not**
+        contain ``true_ra_deg`` or ``true_dec_deg``.
+    metadata : dict
+        Dataset metadata including ground-truth file reference.
+    """
 
     # --------------------------------------------------
     # 1. Load asteroid trajectory
     # --------------------------------------------------
+
+    config, config_file = load_config(config_path)
 
     input_path = Path(config["input_trajectory"])
 
@@ -78,12 +98,10 @@ def generate_observations(config_path):
         available_end_day=ground_truth_times[-1],
     )
 
-    observation_times_years = (
-        observation_times_days / DAYS_PER_YEAR
-    )
+    observation_times_years = observation_times_days / DAYS_PER_YEAR
 
     # --------------------------------------------------
-    # 3. Interpolate asteroid positions
+    # 3. Interpolate asteroid positions at observation epochs
     # --------------------------------------------------
 
     asteroid_positions = interpolate_positions(
@@ -106,7 +124,7 @@ def generate_observations(config_path):
     )
 
     # --------------------------------------------------
-    # 5. Calculate relative positions
+    # 5. Calculate relative positions (asteroid - observer)
     # --------------------------------------------------
 
     relative_positions = calculate_relative_positions(
@@ -125,9 +143,7 @@ def generate_observations(config_path):
         obliquity_deg=coordinate_config["obliquity_deg"],
     )
 
-    true_ra_deg, true_dec_deg = calculate_ra_dec(
-        equatorial_positions
-    )
+    true_ra_deg, true_dec_deg = calculate_ra_dec(equatorial_positions)
 
     # --------------------------------------------------
     # 7. Add measurement noise
@@ -143,22 +159,19 @@ def generate_observations(config_path):
     ) = add_measurement_noise(
         true_ra_deg,
         true_dec_deg,
-        sigma_ra_cosdec_arcsec=noise_config[
-            "sigma_ra_cosdec_arcsec"
-        ],
-        sigma_dec_arcsec=noise_config[
-            "sigma_dec_arcsec"
-        ],
+        sigma_ra_cosdec_arcsec=noise_config["sigma_ra_cosdec_arcsec"],
+        sigma_dec_arcsec=noise_config["sigma_dec_arcsec"],
         random_seed=noise_config["random_seed"],
     )
 
     # --------------------------------------------------
-    # 8. Create observation dataset
+    # 8. Create observation dataset (measurements only, no truth)
     # --------------------------------------------------
 
     number_of_observations = len(observation_times_days)
 
     observations = pd.DataFrame({
+        "obs_id": np.arange(number_of_observations, dtype=int),
         "time_years": observation_times_years,
         "time_days": observation_times_days,
         "ra_deg": noisy_ra_deg,
@@ -171,11 +184,13 @@ def generate_observations(config_path):
             number_of_observations,
             noise_config["sigma_dec_arcsec"],
         ),
+        "frame": coordinate_config["output_frame"],  # e.g. "equatorial_j2000"
+        "time_scale": "TT",  # default time scale; could be "TDB" or "UTC"
     })
 
-    if config["output"]["save_noise_free_coordinates"]:
-        observations["true_ra_deg"] = true_ra_deg
-        observations["true_dec_deg"] = true_dec_deg
+    # Ground-truth information is written to a separate file,
+    # never embedded in the observation dataset.
+    # This prevents C3 from accessing hidden simulation truth.
 
     # --------------------------------------------------
     # 9. Save output files
@@ -195,10 +210,75 @@ def generate_observations(config_path):
 
     csv_path = output_directory / "observations.csv"
 
+    # Observation CSV contains measurement-only data (no truth columns)
     observations.to_csv(csv_path, index=False)
 
     # --------------------------------------------------
-    # 10. Save metadata
+    # 10. Save ground-truth file (if requested)
+    # --------------------------------------------------
+
+    if output_config.get("save_noise_free_coordinates", False):
+        # Interpolate asteroid positions at observation times
+        # (already computed in step 3 as asteroid_positions)
+        ground_truth_positions = asteroid_positions
+
+        # Interpolate asteroid velocities at observation times
+        # using np.interp on the trajectory time base
+        vx_interp = np.interp(
+            observation_times_days,
+            ground_truth_times,
+            trajectory["velocities"][:, 0],
+        )
+        vy_interp = np.interp(
+            observation_times_days,
+            ground_truth_times,
+            trajectory["velocities"][:, 1],
+        )
+        vz_interp = np.interp(
+            observation_times_days,
+            ground_truth_times,
+            trajectory["velocities"][:, 2],
+        )
+        ground_truth_velocities = np.column_stack([vx_interp, vy_interp, vz_interp])
+
+        # Write true coordinates to a separate ground-truth file
+        ground_truth = pd.DataFrame({
+            "obs_id": np.arange(number_of_observations, dtype=int),
+            "true_ra_deg": true_ra_deg,
+            "true_dec_deg": true_dec_deg,
+            "x_au": ground_truth_positions[:, 0],
+            "y_au": ground_truth_positions[:, 1],
+            "z_au": ground_truth_positions[:, 2],
+            "vx_au_per_year": ground_truth_velocities[:, 0],
+            "vy_au_per_year": ground_truth_velocities[:, 1],
+            "vz_au_per_year": ground_truth_velocities[:, 2],
+        })
+
+        ground_truth_path = output_directory / "ground_truth.json"
+        # Save as JSON for structured data with explicit schema
+        ground_truth_dict = ground_truth.to_dict(orient="records")
+        with open(ground_truth_path, "w", encoding="utf-8") as gf:
+            json.dump(ground_truth_dict, gf, indent=4)
+
+        # Also store metadata about the ground-truth file
+        ground_truth_metadata = {
+            "ground_truth_file": "ground_truth.json",
+            "number_of_observations": number_of_observations,
+            "true_ra_deg": True,
+            "true_dec_deg": True,
+            "includes_positions": True,
+            "includes_velocities": True,
+        }
+    else:
+        ground_truth_metadata = {
+            "ground_truth_file": None,
+            "number_of_observations": number_of_observations,
+            "includes_positions": False,
+            "includes_velocities": False,
+        }
+
+    # --------------------------------------------------
+    # 11. Build metadata dictionary
     # --------------------------------------------------
 
     metadata = {
@@ -229,8 +309,12 @@ def generate_observations(config_path):
             "Ecliptic coordinates are rotated using the configured obliquity",
             "Gaussian angular measurement noise is applied",
             "Observation times are elapsed simulation times, not real calendar dates",
+            "Ground truth is stored separately in ground_truth.json; ",
+            "observation CSV contains measurements only.",
         ],
         "output_file": "observations.csv",
+        # Ground-truth metadata
+        "ground_truth": ground_truth_metadata,
     }
 
     if output_config["save_metadata"]:
@@ -240,7 +324,7 @@ def generate_observations(config_path):
             json.dump(metadata, file, indent=4)
 
     # --------------------------------------------------
-    # 11. Print summary
+    # 12. Print summary
     # --------------------------------------------------
 
     print("\nSynthetic observation generation successful.")

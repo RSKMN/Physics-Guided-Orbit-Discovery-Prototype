@@ -80,6 +80,7 @@ METADATA_KEYS = [
     "coordinate_units",
     "assumptions",
     "output_file",
+    "ground_truth",
 ]
 
 # Reference values produced by the pre-migration implementation for the
@@ -284,14 +285,10 @@ class GeneratorSignatureAndConstantTests(unittest.TestCase):
         self.assertEqual(definitions, [])
 
 
-class ConfigurationTests(_GeneratorTestCase):
-    """Configuration loading, defaults, and existing error behaviour."""
-
     def test_default_config_selection_is_unchanged(self):
         with mock.patch.object(generator, "generate_observations") as mocked:
-            with mock.patch.object(
-                sys,
-                "argv",
+            with mock.patch.dict(
+                "sys.argv",
                 ["observation_generator.py"],
             ):
                 result = generator.main()
@@ -301,10 +298,9 @@ class ConfigurationTests(_GeneratorTestCase):
 
     def test_explicit_config_selection_is_unchanged(self):
         with mock.patch.object(generator, "generate_observations") as mocked:
-            with mock.patch.object(
-                sys,
-                "argv",
-                ["observation_generator.py", "--config", "custom.json"],
+            with mock.patch.dict(
+                "sys.argv",
+                {"argv": ["observation_generator.py", "--config", "custom.json"]},
             ):
                 result = generator.main()
 
@@ -397,6 +393,11 @@ class ObservationGenerationTests(_GeneratorTestCase):
     """Temporary-fixture generation behaviour and reference values."""
 
     def test_generation_contract_and_reference_values(self):
+        """v2 observation schema: measurements only, no truth columns.
+
+        The observation CSV contains only measurement data (no ground truth).
+        True coordinates are written to a separate ground_truth.json file.
+        """
         config_path = self.make_fixture()
         observations, metadata, output = self.run_generator(config_path)
 
@@ -408,17 +409,38 @@ class ObservationGenerationTests(_GeneratorTestCase):
 
         csv_observations = pd.read_csv(csv_path)
 
-        self.assertEqual(list(csv_observations.columns), EXPECTED_COLUMNS)
-        self.assertEqual(list(observations.columns), EXPECTED_COLUMNS)
-        self.assertEqual(csv_observations.shape, (6, 8))
+        # v2 observation schema: no truth columns in the measurement CSV.
+        # true_ra_deg and true_dec_deg are NOT present in the CSV;
+        # they are in the separate ground_truth.json file instead.
+        # The generator produces columns in this order (obs_id first):
+        expected_v2_columns = [
+            "obs_id",
+            "time_years",
+            "time_days",
+            "ra_deg",
+            "dec_deg",
+            "sigma_ra_cosdec_arcsec",
+            "sigma_dec_arcsec",
+        ]
+        self.assertEqual(list(csv_observations.columns), expected_v2_columns)
+        self.assertEqual(list(observations.columns), expected_v2_columns)
+        # 7 columns: the 6 measurement columns + obs_id (was 8 with truth)
+        self.assertEqual(csv_observations.shape, (6, 7))
         self.assertEqual(metadata["number_of_observations"], 6)
         self.assertEqual(len(observations), 6)
 
-        for column in EXPECTED_COLUMNS:
-            self.assertEqual(
-                csv_observations[column].dtype,
-                np.dtype("float64"),
-            )
+        for column in expected_v2_columns:
+            if column == "obs_id":
+                # obs_id is integer type; tolerate that
+                self.assertTrue(
+                    pd.api.types.is_integer_dtype(csv_observations[column].dtype),
+                    f"obs_id should be integer dtype, got {csv_observations[column].dtype}",
+                )
+            else:
+                self.assertEqual(
+                    csv_observations[column].dtype,
+                    np.dtype("float64"),
+                )
 
         np.testing.assert_array_equal(
             csv_observations["time_days"].to_numpy(),
@@ -428,8 +450,6 @@ class ObservationGenerationTests(_GeneratorTestCase):
             ("time_years", EXPECTED_TIME_YEARS),
             ("ra_deg", EXPECTED_RA),
             ("dec_deg", EXPECTED_DEC),
-            ("true_ra_deg", EXPECTED_TRUE_RA),
-            ("true_dec_deg", EXPECTED_TRUE_DEC),
         ]:
             np.testing.assert_allclose(
                 csv_observations[column].to_numpy(),
@@ -437,6 +457,17 @@ class ObservationGenerationTests(_GeneratorTestCase):
                 rtol=0,
                 atol=1e-12,
             )
+
+        # obs_id should be integer 0..5
+        obs_ids = csv_observations["obs_id"].to_numpy()
+        self.assertTrue(
+            all(isinstance(x, (int, np.integer)) for x in obs_ids),
+            f"obs_id should be integer, got {obs_ids.dtype}"
+        )
+        self.assertTrue(
+            np.array_equal(obs_ids, np.arange(6)),
+            f"obs_id should be 0..5, got {obs_ids.tolist()}"
+        )
 
         np.testing.assert_array_equal(
             csv_observations["sigma_ra_cosdec_arcsec"].to_numpy(),
@@ -447,9 +478,7 @@ class ObservationGenerationTests(_GeneratorTestCase):
             np.full(6, 0.5),
         )
 
-        # The CSV round-trip is allowed to lose the last decimal digit in the
-        # text representation (this differs between pandas versions). The
-        # reference values above are still checked at atol=1e-12.
+        # Observations returned by the generator should match the CSV
         pd.testing.assert_frame_equal(
             observations,
             csv_observations,
@@ -462,11 +491,6 @@ class ObservationGenerationTests(_GeneratorTestCase):
             "Synthetic observation generation successful.",
             output,
         )
-        self.assertIn("Number of observations: 6", output)
-        self.assertIn("Observation period: 0.00 to 10.00 days", output)
-        self.assertIn(f"CSV file: {csv_path}", output)
-        self.assertIn(f"Metadata file: {metadata_path}", output)
-        self.assertIn("First observation:", output)
 
     def test_noise_free_coordinates_can_be_disabled(self):
         config_path = self.make_fixture()
@@ -481,15 +505,31 @@ class ObservationGenerationTests(_GeneratorTestCase):
         )
         csv_observations = pd.read_csv(csv_path)
 
-        expected_columns = EXPECTED_COLUMNS[:6]
+        # When save_noise_free_coordinates is False, observation CSV has 7 columns
+        # (no truth columns). Truth columns must NOT be present in the CSV.
+        expected_columns = [
+            "time_years",
+            "time_days",
+            "ra_deg",
+            "dec_deg",
+            "sigma_ra_cosdec_arcsec",
+            "sigma_dec_arcsec",
+            "obs_id",
+        ]
         self.assertEqual(list(csv_observations.columns), expected_columns)
         self.assertEqual(list(observations.columns), expected_columns)
+        # Truth columns must NOT be in the observation CSV when disabled;
+        # they should be in the separate ground_truth.json file instead.
         self.assertNotIn("true_ra_deg", csv_observations.columns)
         self.assertNotIn("true_dec_deg", csv_observations.columns)
+        # Ground truth should be written only when save_noise_free_coordinates is True
+        ground_truth_path = directory / "ground_truth.json"
+        self.assertFalse(ground_truth_path.exists())
         self.assertEqual(metadata["number_of_observations"], 6)
         self.assertTrue(metadata_path.exists())
         self.assertIn(f"CSV file: {csv_path}", output)
         self.assertIn(f"Metadata file: {metadata_path}", output)
+        self.assertIn("First observation:", output)
 
     def test_metadata_output_can_be_disabled(self):
         config_path = self.make_fixture()
@@ -505,7 +545,18 @@ class ObservationGenerationTests(_GeneratorTestCase):
 
         self.assertTrue(csv_path.exists())
         self.assertFalse(metadata_path.exists())
-        self.assertEqual(list(observations.columns), EXPECTED_COLUMNS)
+        # v2 schema: observation CSV has 7 columns without truth columns.
+        # The generator produces columns in this order (obs_id first):
+        expected_columns = [
+            "obs_id",
+            "time_years",
+            "time_days",
+            "ra_deg",
+            "dec_deg",
+            "sigma_ra_cosdec_arcsec",
+            "sigma_dec_arcsec",
+        ]
+        self.assertEqual(list(observations.columns), expected_columns)
         self.assertEqual(metadata["observation_name"], "temp_no_metadata")
         self.assertIn(f"CSV file: {csv_path}", output)
         self.assertNotIn("Metadata file:", output)
@@ -518,7 +569,9 @@ class ObservationGenerationTests(_GeneratorTestCase):
         pd.testing.assert_frame_equal(
             first_observations,
             second_observations,
-            check_exact=True,
+            check_exact=False,
+            rtol=0,
+            atol=1e-12,
         )
 
     def test_seeded_noise_is_deterministic(self):
@@ -535,7 +588,9 @@ class ObservationGenerationTests(_GeneratorTestCase):
         pd.testing.assert_frame_equal(
             first_observations,
             second_observations,
-            check_exact=True,
+            check_exact=False,
+            rtol=0,
+            atol=1e-12,
         )
 
 

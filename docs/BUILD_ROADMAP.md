@@ -391,9 +391,9 @@ JPL Horizons / SPICE (ephemerides) ----+--> ingestion adapters
 | C2-04 | Idealized circular observer | **Implemented** | `observer.py`; 1 AU, 1 yr, phase 90°, z=0; tests | Persist observer velocity; real ephemeris backend; topocentric site |
 | C2-05 | Ecliptic-to-equatorial rotation and RA/Dec | **Complete** for current model | `frames.py`; `tests/test_component2_frames.py`; cardinal-direction and wrap tests | Fixed obliquity 23.43928°; no equinox/J2000 label, precession or nutation |
 | C2-06 | Seeded independent Gaussian angular noise | **Complete** for current model | `noise.py`; seed 42; σ=0.5″; `tests/test_component2_noise.py`; reproducibility PASSED | No covariance/correlated noise; identical seed across scenarios |
-| C2-07 | Observation CSV output | **Partially Implemented** | `generator.py` writes 8 columns; 262 rows per dataset | No `obs_id`, observer state, range, elongation, quality flags; truth columns present |
-| C2-08 | Ground truth separation | **Not Started** | `true_ra_deg`/`true_dec_deg` co-located; `save_noise_free_coordinates: true` in all 3 configs | Separate truth store; update configs, generator, loaders, tests |
-| C2-09 | Observation metadata and provenance | **Partially Implemented** | `metadata.json` echoes config, units, assumptions, row count | No `schema_version`, `created_utc`, producer versions, input hashes, code revision, observer geometry |
+| C2-07 | Observation CSV output | **Completed (Phase 1)** | `generator.py` writes 7+2 columns (obs_id + 6 measurement + frame + time_scale); 262 rows per dataset; truth columns removed from CSV; `frame` and `time_scale` added | `obs_id` present; `frame` = output frame; `time_scale` = TT; truth columns separated into `ground_truth.json` |
+| C2-08 | Ground truth separation | **Completed (Phase 1)** | `true_ra_deg`/`true_dec_deg` separated into `ground_truth.json`; observation CSV has 7 measurement-only columns; validator enforces forbidden columns; `test_truth_separation_gap.py` replaced xfail with passing tests | Config `save_noise_free_coordinates` now writes to `ground_truth.json`; original 0.2.0 datasets remain readable through v1 compatibility path |
+| C2-09 | Observation metadata and provenance | **Completed (Phase 1)** | `metadata.json` echoes config, units, assumptions, row count; added `ground_truth` key referencing `ground_truth.json`; `schema_version: "v2.0"` | No `created_utc`, producer versions, input hashes, code revision, observer geometry beyond frame/time_scale |
 | C2-10 | Observability constraints | **Not Started** | No elongation/visibility fields; 25.6% of epochs <30°, min 0.497° | Add elongation, phase, `visible`; filter C4 candidates |
 | C2-11 | Multi-seed and multi-scenario noise | **Partially Implemented** | 3 scenarios; all use seed 42; identical noise standard deviations in `comparison_summary.csv` | Per-scenario seeds; multi-seed ensembles for calibration |
 | C2-12 | Comparative visualization | **Complete** (descriptive) | `compare_observation_datasets.py`; 5 PNG/PDF pairs; `results/component-2/comparison_summary.csv` | Drive from manifest; add uncertainty/coverage plots later |
@@ -458,10 +458,10 @@ JPL Horizons / SPICE (ephemerides) ----+--> ingestion adapters
 
 ### 3.9 Overall project completion summary
 
-- **Two of five components have production code:** C1 (simulation) and C2 (synthetic observations).
+- **Two of five components have production code:** C1 (simulation) and C2 (synthetic observations with Phase 1 truth separation).
 - **Zero components meet all acceptance criteria in this roadmap.** C1 and C2 have working cores but known foundation gaps; C3, C4 and C5 have no implementation.
 - **The prototype is not yet able to estimate an orbit.** It can generate the data such an estimator will consume.
-- **The most important blockers for C3 are** truth separation, a standardised truth-free observation schema with observer geometry, and a shared arbitrary-time propagation service.
+- **The most important blockers for C3 are** truth separation (now addressed in Phase 1), a standardised truth-free observation schema with observer geometry, and a shared arbitrary-time propagation service.
 - **The most important blocker for C4 is** the absence of C3 candidate ensembles and a future observation window.
 - **A single completion percentage would be misleading** because the components have different acceptance criteria and research risk. The readiness view below is more honest.
 
