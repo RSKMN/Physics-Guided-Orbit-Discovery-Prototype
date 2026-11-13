@@ -1,0 +1,26 @@
+{
+    "simulation_name": "test",
+    "gravitational_bodies": [
+        "Sun",
+        "Earth",
+        "Jupiter"
+    ],
+    "initial_conditions": {
+        "mode": "orbital_elements",
+        "semi_major_axis_au": 2.0,
+        "eccentricity": 0.3,
+        "inclination_deg": 10.0,
+        "longitude_ascending_node_deg": 0.0,
+        "argument_periapsis_deg": 90.0,
+        "mean_anomaly_deg": 0.0
+    },
+    "simulation": {
+        "duration_years": 5.0,
+        "output_interval_days": 1.0,
+        "integrator": "ias15",
+        "integrator_epsilon": 1e-12
+    },
+    "output": {
+        "directory": "data/runs/test_sim"
+    }
+}

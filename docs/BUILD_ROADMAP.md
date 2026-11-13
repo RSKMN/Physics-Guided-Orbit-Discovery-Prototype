@@ -269,7 +269,13 @@ JPL Horizons / SPICE (ephemerides) ----+--> ingestion adapters
 | `core.constants` | Project-wide unit constants (`DAYS_PER_YEAR`, `ARCSEC_TO_DEG`) | Implemented and tested | None |
 | `core.paths` | Project-root/config/output resolution without CWD dependence | Implemented and tested | None |
 | Schema validation | Validate files at every component boundary | Only ad-hoc checks exist | Yes |
-| Propagation service | Propagate arbitrary state/epoch to arbitrary times with the same dynamics | **Not Started** | Yes |
+| Propagation service | Propagate arbitrary state/epoch to arbitrary times with the same dynamics | **Complete** (Stage 2.2) - 7-col schema / 9-col optional | Yes |
+|  |  |  |  |
+|  | `propagate_state()` — propagate a single Cartesian state to a target time | Implemented |  |
+|  | `propagate_multi()` — propagate to multiple target times | Implemented |  |
+|  | `propagate_from_trajectory()` — interpolation within span, numerical integration beyond | Implemented |  |
+|  | Units: years, AU, Msun; integrator: IAS15 (same as C1) | Documented |  |
+|  | Verified: interpolation uses `np.interp`; beyond-span uses REBOUND IAS15 integration; matches direct REBOUND propagation | Empirically verified |  |
 | State/element conversion | Convert Cartesian states to elements and back | **Not Started** | Yes |
 | Truth access control | Prevent C3/C4 from reading truth | **Not Started** | Yes |
 | Logging/error taxonomy | Consistent errors and exit codes | Print-based, generic exceptions | Recommended |
@@ -295,7 +301,7 @@ JPL Horizons / SPICE (ephemerides) ----+--> ingestion adapters
 |---|---|---|---|
 | Truth separation | Truth columns co-located | Separate truth store, access control | Design + implementation |
 | Observation schema | Minimal v1 | Versioned v2 with observer geometry and quality | Design + migration |
-| Propagation | Fixed run only | Arbitrary state/epoch/service | New module |
+| Propagation | Arbitrary state/epoch + interpolation + numerical propagation | Arbitrary state/epoch/service | New module (Stage 2.2 complete) |
 | Interpolation | Linear, 0.22″ median error | Hermite/direct propagation, measured | New method + tests |
 | Orbit estimation | None | IOD + weighted fit + candidates + covariance | Entire component |
 | Selection | None | Scoring + constraints + reveal + baselines | Entire component |
@@ -374,7 +380,7 @@ JPL Horizons / SPICE (ephemerides) ----+--> ingestion adapters
 | C1-05 | Trajectory CSV output (`time_years`, `time_days`, `x/y/z_au`, `vx/vy/vz_au_per_year`) | **Complete** for v1 | `data/runs/*/trajectory.csv` (1001 rows); `tests/test_trajectory_loader.py`; `validate_baseline.py` | Add schema version and optional epoch fields |
 | C1-06 | Run metadata and provenance | **Partially Implemented** | `data/runs/*/metadata.json`: run_utc, Python/REBOUND versions, units, frame, initial conditions, `epoch_jd_tdb: null` | Add `schema_version`, config hash, trajectory hash, code revision, full planetary state, POSIX paths |
 | C1-07 | Reproducibility | **Partially Implemented** | `data/repeatability/run_a/`, `data/repeatability/run_b/`; existing runs match | Tests write tracked data; no hash/provenance; no multi-seed concept |
-| C1-08 | Shared arbitrary-time propagation service | **Not Started** | `grep` finds no propagation API; `component1_simulation/` is a docstring-only skeleton | Full implementation; see Section 4.4 |
+| C1-08 | Shared arbitrary-time propagation service | **Complete** (Phase 2 / Stage 2.2) | `src/orbit_discovery/core/propagation.py` implements `propagate_state`, `propagate_multi`, `propagate_from_trajectory`; verified against C1 IAS15 model | None; service is now available for C3/C4 |
 | C1-09 | Cartesian state ↔ orbital elements conversion | **Not Started** | No function found | Implement and test round-trip |
 | C1-10 | Future observation window / held-out horizon | **Not Started** | Simulation and observations both end at 1826.25 d | Extend horizon or reserve a future window |
 | C1-11 | Real ephemeris backend in the configurable simulator | **Partially Implemented** | `src/nbody_realistic.py`, `src/horizons_loader.py`; Eros validation CSVs | Separate from modern configurable path; network-dependent; not in package |
@@ -490,6 +496,7 @@ JPL Horizons / SPICE (ephemerides) ----+--> ingestion adapters
 | Elongation statistics | Recomputed in this revision; historical record in `CODEBASE_ANALYSIS.md` §8.5 |
 | CLI dispatch | `src/orbit_discovery/cli/*.py`; direct `main()` invocation |
 | No C3–C5 code | Source inventory and `grep` for estimator/selector terms |
+| Propagation service | `src/orbit_discovery/core/propagation.py`; Stage 2.2 test results; interpolation accuracy measurements; numerical propagation verified against direct REBOUND IAS15 |
 | Test result counts | This revision's pytest run (Section 3.2) |
 
 ---
@@ -3255,7 +3262,8 @@ Phase 0 has been completed. This phase addressed test hygiene, CLI exposure, dep
    - Removed --output-root reporting logic at success stage.
 
 7. **tests/conftest.py** (new)
-   - Session-level fixtures: epo_root, configs_dir, synthetic_simulation_config, synthetic_observation_config.
+   - Session-level fixtures: 
+epo_root, configs_dir, synthetic_simulation_config, synthetic_observation_config.
    - Autouse fixture _headless_matplotlib to prevent interactive windows.
    - pytest_configure ensures source tree is importable.
    - has_network_dependencies session fixture.
@@ -3276,7 +3284,8 @@ Phase 0 has been completed. This phase addressed test hygiene, CLI exposure, dep
     - Includes main() function for direct execution.
 
 11. **tests/test_component2_generator.py**
-    - Changed check_exact=True to check_exact=False with tol=0, atol=1e-12 in 	est_generation_contract_and_reference_values to resolve float text formatting mismatch between pandas versions.
+    - Changed check_exact=True to check_exact=False with 
+tol=0, atol=1e-12 in 	est_generation_contract_and_reference_values to resolve float text formatting mismatch between pandas versions.
 
 12. **tests/test_horizons_loader.py**
     - Added @pytest.mark.integration and @pytest.mark.network markers.
@@ -3310,7 +3319,8 @@ Phase 0 has been completed. This phase addressed test hygiene, CLI exposure, dep
 | Test modules execute simulations on import | Moved all execution into explicit test functions; collection is side-effect-free. |
 | Test modules write into tracked project directories | All generated files use 	mp_path fixture; no tracked data modification. |
 | Lock file UTF-16 LE encoding | Regenerated as UTF-8 without BOM. |
-| Lock file missing dependencies (astroquery, pytest) | Regenerated from current environment; pytest>=8,<10 added to equirements.txt and 	est extra in pyproject.toml. |
+| Lock file missing dependencies (astroquery, pytest) | Regenerated from current environment; pytest>=8,<10 added to 
+equirements.txt and 	est extra in pyproject.toml. |
 
 ### Baseline Test Results
 
@@ -3350,7 +3360,8 @@ etwork).
 
 1. Truth-leak gap persists: observation CSVs still contain 	rue_ra_deg and 	rue_dec_deg. This will be addressed in Phase 1 (truth separation).
 2. The --output-root flag is deliberately unsupported in this phase; a future phase will implement proper redirection.
-3. The equirements-lock.txt was regenerated from the current environment; if new dependencies are added, it should be regenerated with pip freeze --exclude-editable > requirements-lock.txt.
+3. The 
+equirements-lock.txt was regenerated from the current environment; if new dependencies are added, it should be regenerated with pip freeze --exclude-editable > requirements-lock.txt.
 4. The Horizons integration test requires network access and stroquery; it is appropriately separated from the default offline suite.
 
 ## Phase 0 Tasks Status

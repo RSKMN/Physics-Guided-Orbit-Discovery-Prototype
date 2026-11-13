@@ -35,8 +35,6 @@ V2_REQUIRED: FrozenSet[str] = frozenset(
         "dec_deg",
         "sigma_ra_cosdec_arcsec",
         "sigma_dec_arcsec",
-        "frame",
-        "time_scale",
     }
 )
 

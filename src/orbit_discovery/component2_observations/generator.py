@@ -184,8 +184,6 @@ def generate_observations(config_path):
             number_of_observations,
             noise_config["sigma_dec_arcsec"],
         ),
-        "frame": coordinate_config["output_frame"],  # e.g. "equatorial_j2000"
-        "time_scale": "TT",  # default time scale; could be "TDB" or "UTC"
     })
 
     # Ground-truth information is written to a separate file,
