@@ -26,6 +26,11 @@ DEFAULT_ORBITAL_PERIOD_YEARS = 1.0
 #: Default obliquity for ecliptic-to-equatorial conversion in degrees
 DEFAULT_OBLIQUITY_DEG = 23.43928
 
+#: Actual gravitational parameter used by REBOUND with sim.units = ("yr", "AU", "Msun").
+#: Measured as sim.G = 39.476926421373 with M_sun = 1.0 Msun.
+#: Observer circular-orbit velocity is sqrt(mu / r), consistent with C1's REBOUND model.
+MU_REBOUND = 39.476926421373
+
 
 class ObserverConfig:
     """Configuration for an observer orbit.
@@ -122,8 +127,8 @@ def calculate_observer_positions(
     z = np.zeros_like(time_years)
 
     # Circular orbit velocity: v = sqrt(mu/r) perpendicular to position
-    # With mu = 1 in project units
-    v_mag = math.sqrt(1.0 / orbital_radius_au)
+    # With mu = 39.4769 (REBOUND's sim.G with units (yr, AU, Msun))
+    v_mag = math.sqrt(MU_REBOUND / orbital_radius_au)
     vx = -v_mag * np.sin(mean_anomaly)
     vy = v_mag * np.cos(mean_anomaly)
     vz = np.zeros_like(time_years)
@@ -180,7 +185,7 @@ def calculate_observer_velocities(
     mean_anomaly = n * time_years + phase_rad
 
     # Circular orbit velocity
-    v_mag = math.sqrt(1.0 / orbital_radius_au)
+    v_mag = math.sqrt(MU_REBOUND / orbital_radius_au)
     vx = -v_mag * np.sin(mean_anomaly)
     vy = v_mag * np.cos(mean_anomaly)
     vz = np.zeros_like(time_years)

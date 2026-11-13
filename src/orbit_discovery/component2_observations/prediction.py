@@ -26,7 +26,15 @@ from orbit_discovery.component2_observations.observer import (
 from orbit_discovery.core.propagation import propagate_state, propagate_multi
 
 #: Gravitational parameter used by the propagation service (AU^3 / yr^2 in units where Msun=1).
+#: NOTE: REBOUND with sim.units = ("yr", "AU", "Msun") sets sim.G = 39.4769 (~4*pi^2),
+#: so the *actual* gravitational parameter is 39.4769, not 1.0.  The declaration below is
+#: retained for documentation only; computations that must agree with C1's REBOUND
+#: propagation use MU_REBOUND.
 MU = 1.0
+
+#: Actual gravitational parameter used by REBOUND with sim.units = ("yr", "AU", "Msun").
+#: Measured as sim.G = 39.476926421373 with M_sun = 1.0 Msun.
+MU_REBOUND = 39.476926421373
 
 #: Small tolerance for classifying an epoch as "inside" the trajectory span.
 TRAJECTORY_TOL = 1e-9
@@ -385,8 +393,8 @@ def predict_from_trajectory(
         _validate_epoch(t)
 
     # Extract initial state from the first trajectory sample
-    positions = trajectory["positions"]  # (N, 3)
-    velocities = trajectory["velocities"]  # (N, 3)
+    positions = np.asarray(trajectory["positions"], dtype=float)  # (N, 3)
+    velocities = np.asarray(trajectory["velocities"], dtype=float)  # (N, 3)
     times = trajectory["time_years"]
 
     # Use the first sample as the initial state

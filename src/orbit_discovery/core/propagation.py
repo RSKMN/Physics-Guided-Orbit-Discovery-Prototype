@@ -14,6 +14,8 @@ Output units and conventions are consistent with C1 trajectory data.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 import rebound
@@ -196,12 +198,19 @@ def propagate_multi(
     vz_au_per_year: float,
     target_times_years: list[float],
     bodies: list[str] | None = None,
+    trajectory: dict | None = None,
 ) -> list[dict[str, float]]:
     """Propagate an asteroid's state to multiple target times.
 
     A convenience wrapper around ``propagate_state`` that avoids re-building
     the simulation for each call.  The simulation is built once and each
     target time is propagated sequentially.
+
+    When a ``trajectory`` is provided, target times inside the trajectory
+    span are obtained by linear interpolation via ``propagate_from_trajectory``
+    (consistent with the trajectory-based interpolation used elsewhere),
+    while target times beyond the span are obtained by REBOUND numerical
+    integration continued from the last trajectory sample.
 
     Parameters
     ----------
@@ -211,6 +220,10 @@ def propagate_multi(
         List of target times in years.
     bodies : list of str, optional
         Gravitational bodies.  Defaults to Sun + Earth + Jupiter.
+    trajectory : dict or None, optional
+        Trajectory data as returned by ``loader.load_trajectory`` or generated
+        by C1.  If provided, times inside the span are interpolated; times
+        beyond are integrated from the last trajectory sample.
 
     Returns
     -------
@@ -218,30 +231,127 @@ def propagate_multi(
         Propagated state at each target time, in the same format as
         ``propagate_state``.
     """
-    sim = _build_simulation(bodies=bodies)
+    times_years = np.asarray(target_times_years, dtype=float)
 
-    # Set the initial asteroid state
-    asteroid_index = sim.N - 1
-    asteroid = sim.particles[asteroid_index]
-    asteroid.x = float(x_au)
-    asteroid.y = float(y_au)
-    asteroid.z = float(z_au)
-    asteroid.vx = float(vx_au_per_year)
-    asteroid.vy = float(vy_au_per_year)
-    asteroid.vz = float(vz_au_per_year)
+    # Validate all target times up front
+    for t in times_years:
+        if t < 0:
+            raise ValueError(f"target_time_years must be >= 0, got {t}.")
+        if not math.isfinite(t):
+            raise ValueError(f"target_time_years must be finite, got {t}.")
 
-    states: list[dict[str, float]] = []
-    for t in target_times_years:
-        try:
-            sim.integrate(float(t))
-        except Exception as e:
+    # Sort times for sequential REBOUND integration; track original order.
+    order = np.argsort(times_years, kind="stable")
+    sorted_times = times_years[order]
+
+    # order[i] gives the original index of sorted_times[i].
+    states: list[dict[str, float] | None] = [None] * len(target_times_years)
+
+    if trajectory is not None:
+        # Validate trajectory has required keys
+        required = {"time_years", "positions", "velocities"}
+        missing = required - set(trajectory.keys())
+        if missing:
             raise ValueError(
-                f"REBOUND integration failed at target_time_years={t}: {e}"
-            ) from e
+                f"Trajectory missing required keys: {sorted(missing)}"
+            )
 
+        traj_times = np.asarray(trajectory["time_years"], dtype=float)
+        traj_positions = np.asarray(trajectory["positions"], dtype=float)
+        traj_velocities = np.asarray(trajectory["velocities"], dtype=float)
+        traj_start = float(traj_times[0])
+        traj_end = float(traj_times[-1])
+
+        # Initial trajectory state (first sample) for beyond-span integration.
+        init_x = float(traj_positions[0, 0])
+        init_y = float(traj_positions[0, 1])
+        init_z = float(traj_positions[0, 2])
+        init_vx = float(traj_velocities[0, 0])
+        init_vy = float(traj_velocities[0, 1])
+        init_vz = float(traj_velocities[0, 2])
+
+        sim = _build_simulation(bodies=bodies)
+        asteroid_index = sim.N - 1
         asteroid = sim.particles[asteroid_index]
-        states.append(
-            {
+
+        # Track whether the simulation has been initialized for beyond-span
+        # integration.  Once initialized, sim.t carries forward so sequential
+        # beyond-span epochs integrate correctly from the current state.
+        beyond_span_initialized = False
+
+        for sorted_idx, t in enumerate(sorted_times):
+            orig_idx = int(order[sorted_idx])
+
+            if traj_start <= t <= traj_end:
+                # Inside trajectory span: linear interpolation.
+                state = {
+                    "x_au": float(np.interp(t, traj_times, traj_positions[:, 0])),
+                    "y_au": float(np.interp(t, traj_times, traj_positions[:, 1])),
+                    "z_au": float(np.interp(t, traj_times, traj_positions[:, 2])),
+                    "vx_au_per_year": float(np.interp(t, traj_times, traj_velocities[:, 0])),
+                    "vy_au_per_year": float(np.interp(t, traj_times, traj_velocities[:, 1])),
+                    "vz_au_per_year": float(np.interp(t, traj_times, traj_velocities[:, 2])),
+                }
+            else:
+                # Beyond trajectory span: REBOUND numerical integration.
+                # For the first beyond-span epoch, start from the initial
+                # trajectory state at t=0.  For subsequent beyond-span epochs,
+                # sim.t carries forward and integrates from the current state.
+                if not beyond_span_initialized:
+                    asteroid.x = init_x
+                    asteroid.y = init_y
+                    asteroid.z = init_z
+                    asteroid.vx = init_vx
+                    asteroid.vy = init_vy
+                    asteroid.vz = init_vz
+                    sim.t = 0.0
+                    beyond_span_initialized = True
+
+                try:
+                    sim.integrate(float(t))
+                except Exception as e:
+                    raise ValueError(
+                        f"REBOUND integration failed at target_time_years={t}: {e}"
+                    ) from e
+
+                asteroid = sim.particles[asteroid_index]
+                state = {
+                    "x_au": float(asteroid.x),
+                    "y_au": float(asteroid.y),
+                    "z_au": float(asteroid.z),
+                    "vx_au_per_year": float(asteroid.vx),
+                    "vy_au_per_year": float(asteroid.vy),
+                    "vz_au_per_year": float(asteroid.vz),
+                }
+
+            states[orig_idx] = state
+
+    else:
+        # No trajectory: propagate from the given initial state to each epoch.
+        sim = _build_simulation(bodies=bodies)
+
+        # Set the initial asteroid state
+        asteroid_index = sim.N - 1
+        asteroid = sim.particles[asteroid_index]
+        asteroid.x = float(x_au)
+        asteroid.y = float(y_au)
+        asteroid.z = float(z_au)
+        asteroid.vx = float(vx_au_per_year)
+        asteroid.vy = float(vy_au_per_year)
+        asteroid.vz = float(vz_au_per_year)
+
+        for sorted_idx, t in enumerate(sorted_times):
+            orig_idx = int(order[sorted_idx])
+
+            try:
+                sim.integrate(float(t))
+            except Exception as e:
+                raise ValueError(
+                    f"REBOUND integration failed at target_time_years={t}: {e}"
+                ) from e
+
+            asteroid = sim.particles[asteroid_index]
+            state = {
                 "x_au": float(asteroid.x),
                 "y_au": float(asteroid.y),
                 "z_au": float(asteroid.z),
@@ -249,7 +359,8 @@ def propagate_multi(
                 "vy_au_per_year": float(asteroid.vy),
                 "vz_au_per_year": float(asteroid.vz),
             }
-        )
+
+            states[orig_idx] = state
 
     return states
 
@@ -321,14 +432,18 @@ def propagate_from_trajectory(
         }
 
     # Beyond the trajectory span: use REBOUND numerical integration.
-    # Get the initial state from the last trajectory sample (closest to the end).
-    # This is a "restart from saved state" approach, not extrapolation.
-    initial_x = float(positions[-1, 0])
-    initial_y = float(positions[-1, 1])
-    initial_z = float(positions[-1, 2])
-    initial_vx = float(velocities[-1, 0])
-    initial_vy = float(velocities[-1, 1])
-    initial_vz = float(velocities[-1, 2])
+    # Start from the first trajectory sample (t=0) and integrate directly to
+    # the target time.  We cannot meaningfully restart from times[-1] without
+    # also knowing the planet states at that epoch, so we re-integrate from
+    # t=0 using the first trajectory sample as the asteroid initial state.
+    # This is physically correct: REBOUND integrates all bodies together from
+    # t=0 to the target time.  No silent extrapolation occurs.
+    initial_x = float(positions[0, 0])
+    initial_y = float(positions[0, 1])
+    initial_z = float(positions[0, 2])
+    initial_vx = float(velocities[0, 0])
+    initial_vy = float(velocities[0, 1])
+    initial_vz = float(velocities[0, 2])
 
     sim = _build_simulation()
     asteroid_index = sim.N - 1

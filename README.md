@@ -2,15 +2,15 @@
 
 A research prototype for physics-guided asteroid orbit discovery. The project combines N-body simulation, synthetic astrometry and, in later stages, orbit estimation and active observation selection.
 
-**Current version:** 0.2.0  
-**Status:** Components 1 and 2 implemented; Components 3–5 planned and **not implemented**.  
+**Current version:** 0.2.2  
+**Status:** Components 1 and 2 implemented and integrated; physical consistency verified (Stage 2.7.1). Components 3–5 planned and **not implemented**.  
 **Baseline:** see [`docs/development/BASELINE_0.2.0.md`](docs/development/BASELINE_0.2.0.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Research motivation
 
 Discovering and characterising asteroids from sparse astrometry requires more than fitting a curve to sky positions. The observable measurements depend on the target's dynamics, the observer's motion, the geometry of the Solar System and the times at which observations are taken. A reproducible synthetic testbed makes it possible to study those dependencies before applying a method to real survey data.
 
-This prototype is intended to support experiments in which physical dynamics and candidate-orbit uncertainty guide the choice of the next observation. Version 0.2.0 provides the simulation and observation-generation half of that pipeline. It does not yet estimate orbits or select observations.
+This prototype is intended to support experiments in which physical dynamics and candidate-orbit uncertainty guide the choice of the next observation. Version 0.2.2 provides the simulation and observation-generation half of that pipeline, with C1/C2 integration and physical-consistency verification complete. It does not yet estimate orbits or select observations.
 
 ## Problem statement
 
@@ -35,12 +35,13 @@ The current prototype addresses the data-generation preconditions for that probl
 ## Current prototype capabilities
 
 - **Component 1:** configurable REBOUND/IAS15 simulation of a massless asteroid under the gravity of the Sun, Mercury, Venus, Earth and Jupiter.
-- **Component 2:** fixed-cadence synthetic observation generation using an idealized circular observer, ecliptic-to-equatorial rotation, RA/Dec calculation and seeded Gaussian angular noise.
+- **Component 2:** fixed-cadence synthetic observation generation using an idealized circular observer, ecliptic-to-equatorial rotation, RA/Dec calculation and seeded Gaussian angular noise, with ground truth stored separately.
 - **Scenarios:** standard (`e = 0.2`, `i = 0°`), eccentric (`e = 0.5`) and inclined (`e = 0.3`, `i = 10°`).
-- **Data products:** trajectories, run metadata, observation tables and observation metadata.
-- **Validation:** read-only checks for trajectory schema, orbital geometry, Kepler period, integrator tolerance, frame conversion, noise reproducibility and observation-dataset integrity.
+- **Data products:** trajectories, run metadata, observation tables, observation metadata and separate ground-truth files.
+- **Validation:** read-only checks for trajectory schema, orbital geometry, Kepler period, integrator tolerance, frame conversion, noise reproducibility, observation-dataset integrity and truth separation.
 - **Analysis:** comparative plots and a summary table for the three observation datasets.
 - **Legacy validation:** separate two-body, N-body and Eros/Horizons workflows are retained as historical evidence.
+- **Integration:** C1/C2 end-to-end pipeline verified (Stage 2.7); gravitational-parameter consistency between C1 and downstream analytic modules verified and corrected (Stage 2.7.1).
 
 ## Component architecture
 
@@ -72,10 +73,12 @@ Component 5: evaluation and schedule comparison
 
 ## Current implementation status
 
-| Component | Status in 0.2.0 | Notes |
+| Component | Status in 0.2.2 | Notes |
 |---|---|---|
 | Component 1 — N-body simulator | Implemented | Configurable synthetic scenarios; writes trajectory, config and metadata |
-| Component 2 — Synthetic observations | Implemented | Fixed cadence, idealized observer, seeded Gaussian noise |
+| Component 2 — Synthetic observations | Implemented | Fixed cadence, idealized observer, seeded Gaussian noise, truth separated into ground_truth.json |
+| C1/C2 integration | Complete | End-to-end pipeline verified (Stage 2.7): 10/10 integration tests pass |
+| Physical consistency (Stage 2.7.1) | Complete | Gravitational parameter aligned with C1's REBOUND model (MU_REBOUND = 39.476926421373); C1 physics untouched |
 | Component 3 — Orbit estimation | **Not implemented** | No fitter, candidate model, covariance or orbit-solution schema |
 | Component 4 — Active selection | **Not implemented** | No scheduler, candidate scoring or future observation window |
 | Component 5 — Evaluation | **Not implemented** | No equal-budget comparison harness or calibration study |
@@ -161,7 +164,15 @@ The CLI syntax was verified with `--help`. The full command was **not executed d
 
 ## How to run validation
 
-The following read-only checks were executed against the 0.2.0 baseline and all exited with status 0:
+The project uses pytest. Run the full suite from the repository root:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/ -q
+```
+
+The verified result for 0.2.2: **175 passed, 1 deselected, 0 failures** (Python 3.13.9, `.venv`).
+
+The following read-only validation scripts were also executed against the baseline and all exited with status 0:
 
 ```powershell
 .\.venv\Scripts\python.exe tests\test_trajectory_loader.py
@@ -186,6 +197,10 @@ These scripts contain assertions or explicit validation output, but they are not
 - `tests\compare_trajectories.py` — writes comparison plots;
 - `tests\test_horizons_loader.py`, `tests\check_horizons_epoch.py`, `tests\validate_eros_horizons.py`, `tests\validate_eros_8planets.py`, `tests\diagnose_eros_horizons.py` — require network access and/or write validation CSVs.
 
+**End-to-end integration tests:**
+
+`tests\test_end_to_end_integration.py` covers all 8 required C1→C2 scenarios plus 2 extras (propagate_state single epoch, orbital element round trip). All 10 pass.
+
 ## Output locations
 
 | Output | Location | Tracked? |
@@ -200,7 +215,7 @@ These scripts contain assertions or explicit validation output, but they are not
 | Comparison figures | `results/component-2/figures/` | No — regenerable |
 | Legacy plots | `plots/` | No — regenerable |
 
-The current observation tables include both noisy `ra_deg`/`dec_deg` and noise-free `true_ra_deg`/`true_dec_deg` columns. This is a known 0.2.0 limitation and must be corrected before a blind orbit-estimation evaluation.
+Ground truth is stored separately from measurements: each observation dataset has a companion `ground_truth.json` with noise-free truth, while `observations.csv` contains measurement-only columns. C3-facing loaders reject any input containing `true_*` columns. This separation is enforced by `test_truth_separation_gap.py`.
 
 ## Scientific assumptions and limitations
 
@@ -216,19 +231,20 @@ The current observation tables include both noisy `ra_deg`/`dec_deg` and noise-f
 - **Missing physics:** no light-time correction, aberration, topocentric parallax, precession/nutation or relativistic deflection.
 - **Observability:** no solar-elongation or visibility filtering. About 25.6% of current epochs have solar elongation below 30°.
 - **Ground truth:** the same numerical model generates the observations and the truth; “accuracy” is model-relative, not real-world astrometric accuracy.
+- **Gravitational parameter:** C1 propagates with REBOUND's actual μ = 39.4769 AU³/yr² (units yr/AU/Msun). Downstream analytic modules (element conversion, observer velocity) now use `MU_REBOUND = 39.476926421373` for consistency with C1; this was corrected in Stage 2.7.1 (previously these modules declared μ = 1.0). C1 simulation physics is unchanged.
 - **Current scope:** no orbit estimation, candidate orbits, uncertainty quantification, active selection or schedule evaluation.
 
 ## Planned future components
 
-1. **Component 3 — Orbit estimation:** candidate-orbit representation, propagation, fitting, residuals, covariance and multi-modal candidates.
-2. **Component 4 — Active observation selection:** candidate scoring, observability constraints, future observation requests and sequential selection.
-3. **Component 5 — Evaluation:** equal-budget comparison of active, fixed and random schedules, with calibration over multiple seeds.
+1. **Component 3 — Orbit estimation:** candidate-orbit representation, propagation, fitting, residuals, covariance and multi-modal candidates. Not started — blocked until Gate F criteria in [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md) are met.
+2. **Component 4 — Active observation selection:** candidate scoring, observability constraints, future observation requests and sequential selection. Not started — blocked by C3.
+3. **Component 5 — Evaluation:** equal-budget comparison of active, fixed and random schedules, with calibration over multiple seeds. Not started — blocked by C3/C4.
 
 The authoritative implementation order, contracts and approval gates are in [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md). [`docs/development/REFACTORING_PLAN.md`](docs/development/REFACTORING_PLAN.md) is retained as historical technical evidence. Those components are proposals; they are not present in the current source tree.
 
 ## Version information
 
-- Project version: **0.2.0**, declared in `pyproject.toml`.
+- Project version: **0.2.2**, declared in `pyproject.toml`.
 - Baseline record: [`docs/development/BASELINE_0.2.0.md`](docs/development/BASELINE_0.2.0.md).
 - Changelog: [`CHANGELOG.md`](CHANGELOG.md).
 - Build roadmap: [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md).
@@ -238,4 +254,4 @@ The authoritative implementation order, contracts and approval gates are in [`do
 
 ## License and citation
 
-No license or citation metadata is declared in version 0.2.0. Add an explicit license and citation before public distribution if required by the host institution or journal.
+No license or citation metadata is declared. Add an explicit license and citation before public distribution if required by the host institution or journal.

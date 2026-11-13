@@ -4,7 +4,7 @@
 |---|---|
 | Document ID | `BUILD_ROADMAP` |
 | Roadmap version | **1.0** |
-| Project version at this revision | **0.2.0** (`pyproject.toml`) |
+| Project version at this revision | **0.2.2** (`pyproject.toml`) |
 | Date | **2026-11-13** |
 | Status | **Living document — single source of truth** |
 | Owner | Project maintainer |
@@ -44,7 +44,7 @@
 
 - Repository name: `physics-guided-orbit-discovery-prototype`.
 - Python distribution name: `orbit-discovery`.
-- Current declared version: `0.2.0` in `pyproject.toml`; the README, changelog and CLI strings also use `0.2.0`.
+- Current declared version: `0.2.2` in `pyproject.toml`; the README, changelog and CLI strings also use `0.2.2`.
 - Primary language: Python 3.12/3.13.
 - Core scientific library: REBOUND 5.2.2 with the IAS15 integrator.
 
@@ -299,14 +299,15 @@ JPL Horizons / SPICE (ephemerides) ----+--> ingestion adapters
 
 | Capability | 0.2.0 | Target prototype | Gap |
 |---|---|---|---|
-| Truth separation | Truth columns co-located | Separate truth store, access control | Design + implementation |
-| Observation schema | Minimal v1 | Versioned v2 with observer geometry and quality | Design + migration |
-| Propagation | Arbitrary state/epoch + interpolation + numerical propagation | Arbitrary state/epoch/service | New module (Stage 2.2 complete) |
-| Interpolation | Linear, 0.22″ median error | Hermite/direct propagation, measured | New method + tests |
+| Truth separation | Truth columns co-located | Separate truth store, access control | **Complete** (verified Stage 2.7) — observation CSV has 7 measurement-only columns; truth in separate `ground_truth.json`; C3 loader rejects `true_*` columns |
+| Observation schema | Minimal v1 | Versioned v2 with observer geometry and quality | **Complete** (verified Stage 2.7) — v2 schema defined; `frame` and `time_scale` present; observer geometry not yet per-observation (deferred to C2-R3) |
+| Propagation | Arbitrary state/epoch + interpolation + numerical propagation | Arbitrary state/epoch/service | **Complete** (verified Stage 2.7) — `propagate_state()`, `propagate_multi()`, `propagate_from_trajectory()`; interpolation inside span, REBOUND beyond span |
+| Interpolation | Linear, 0.22″ median error | Hermite/direct propagation, measured | **Measured and bounded** (verified Stage 2.7) — interpolation at exact sample points <1e-12 AU; `evaluate_trajectory()` returns bounded error statistics; Hermite/direct upgrade deferred to C2-R5 |
 | Orbit estimation | None | IOD + weighted fit + candidates + covariance | Entire component |
 | Selection | None | Scoring + constraints + reveal + baselines | Entire component |
 | Evaluation | Descriptive plots | Equal-budget multi-seed harness | Entire component |
 | Real data | None | Adapter interface + source parsers | Future phase |
+| State ↔ elements conversion | Not started | Round-trip Cartesian ↔ orbital elements | **Implemented** (verified Stage 2.7) — `cartesian_to_orbital_elements()`, `orbital_elements_to_cartesian()`, round-trip helpers in `orbital_elements.py` |
 
 ---
 
@@ -3005,6 +3006,7 @@ This table is append-only. Do not delete old entries. Each project change that a
 | Roadmap version | Project version | Date | Changes |
 |---|---|---|---|
 | **1.0** | **0.2.0** | **2026-11-13** | Initial living roadmap based on full repository inspection. Recorded: C1 and C2 implemented with foundation gaps; C3–C5 not started; truth leak in observation CSV; linear interpolation error 0.223″ median / 1.731″ max; 25.6% of epochs below 30° elongation; CLI dispatch exists but no console entry point; test suite 142 passed / 1 failed / 1 error under system Python and not runnable in `.venv`; import-time test side effects discovered and reverted. Established Phase 0–8 plan, Gate F/G3/G4, contracts, completion criteria and maintenance rules. Final consistency pass aligned effort totals, spelling/terminology and status-label usage, fixed table-field formatting, clarified oracle isolation, C5 success criteria and light-time/v2 sequencing, and cross-linked this roadmap from `README.md` and the historical refactoring plan. |
+| **1.0** | **0.2.2** | **2026-11-13** | Release v0.2.2: C1/C2 baseline stabilized and physically consistent. Stage 2.7 (End-to-End Integration) complete — 10/10 end-to-end integration tests pass; C1→C2 pipeline verified with truth separation. Stage 2.7.1 (Physical Consistency Audit) complete — Defect D-1 (MU mismatch) resolved: downstream analytic modules now use `MU_REBOUND = 39.476926421373` matching C1's REBOUND `sim.G`; element conversion round trip exact at machine precision (~4.4e-16 AU); observer velocity corrected to `sqrt(MU_REBOUND/r)` = 6.283 AU/yr at r=1 AU; C1 simulation physics untouched. Regression suite: 175 passed, 1 deselected, 0 failures. Components 3–5 not implemented. Version history is append-only; prior row retained. |
 
 ### 13.1 Change-log rules
 

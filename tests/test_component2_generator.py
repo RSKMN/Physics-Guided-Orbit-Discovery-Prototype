@@ -230,7 +230,7 @@ class _GeneratorTestCase(unittest.TestCase):
         return directory, directory / "observations.csv", directory / "metadata.json"
 
 
-class GeneratorSignatureAndConstantTests(unittest.TestCase):
+class GeneratorSignatureAndConstantTests(_GeneratorTestCase):
     """The migrated public contract must remain unchanged."""
 
     def test_load_config_signature_is_unchanged(self):
@@ -287,9 +287,8 @@ class GeneratorSignatureAndConstantTests(unittest.TestCase):
 
     def test_default_config_selection_is_unchanged(self):
         with mock.patch.object(generator, "generate_observations") as mocked:
-            with mock.patch.dict(
-                "sys.argv",
-                ["observation_generator.py"],
+            with mock.patch(
+                "sys.argv", ["observation_generator.py"]
             ):
                 result = generator.main()
 
@@ -298,9 +297,9 @@ class GeneratorSignatureAndConstantTests(unittest.TestCase):
 
     def test_explicit_config_selection_is_unchanged(self):
         with mock.patch.object(generator, "generate_observations") as mocked:
-            with mock.patch.dict(
+            with mock.patch(
                 "sys.argv",
-                {"argv": ["observation_generator.py", "--config", "custom.json"]},
+                ["observation_generator.py", "--config", "custom.json"],
             ):
                 result = generator.main()
 
@@ -507,14 +506,15 @@ class ObservationGenerationTests(_GeneratorTestCase):
 
         # When save_noise_free_coordinates is False, observation CSV has 7 columns
         # (no truth columns). Truth columns must NOT be present in the CSV.
+        # Column order matches the generator output: obs_id first, then measurements.
         expected_columns = [
+            "obs_id",
             "time_years",
             "time_days",
             "ra_deg",
             "dec_deg",
             "sigma_ra_cosdec_arcsec",
             "sigma_dec_arcsec",
-            "obs_id",
         ]
         self.assertEqual(list(csv_observations.columns), expected_columns)
         self.assertEqual(list(observations.columns), expected_columns)
@@ -646,6 +646,8 @@ class MetadataTests(_GeneratorTestCase):
                 "Ecliptic coordinates are rotated using the configured obliquity",
                 "Gaussian angular measurement noise is applied",
                 "Observation times are elapsed simulation times, not real calendar dates",
+                "Ground truth is stored separately in ground_truth.json; ",
+                "observation CSV contains measurements only.",
             ],
         )
         self.assertEqual(metadata["output_file"], "observations.csv")
