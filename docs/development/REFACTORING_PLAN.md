@@ -9,6 +9,8 @@
 > **Scope note**
 >
 > This document is a prioritised engineering and scientific plan. It does not modify source code, configuration files, datasets or dependencies. Every schema, interface and directory shown below is a **proposal** unless explicitly marked “existing”. The current implemented behaviour is documented in `CODEBASE_ANALYSIS.md`; it should be treated as the baseline to preserve, not as a design to assume.
+>
+> **Status note (2026-11-13):** This document is retained as historical technical evidence. Current implementation status, sequencing, contracts and acceptance gates are maintained in [`../BUILD_ROADMAP.md`](../BUILD_ROADMAP.md). Where the two differ, the roadmap is authoritative for status and sequencing.
 
 ---
 

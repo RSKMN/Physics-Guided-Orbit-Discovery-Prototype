@@ -89,6 +89,7 @@ physics-guided-orbit-discovery-prototype/
 ├── configs/                 # six scientific JSON configurations
 ├── data/                    # reference trajectories, observations and validation artefacts
 ├── docs/                    # component documentation and development records
+│   ├── BUILD_ROADMAP.md     # authoritative status, plans and contracts
 │   ├── COMPONENT_1.md
 │   └── development/
 │       ├── CODEBASE_ANALYSIS.md
@@ -223,15 +224,16 @@ The current observation tables include both noisy `ra_deg`/`dec_deg` and noise-f
 2. **Component 4 — Active observation selection:** candidate scoring, observability constraints, future observation requests and sequential selection.
 3. **Component 5 — Evaluation:** equal-budget comparison of active, fixed and random schedules, with calibration over multiple seeds.
 
-The implementation order, contracts and approval gates are in [`docs/development/REFACTORING_PLAN.md`](docs/development/REFACTORING_PLAN.md). Those components are proposals; they are not present in the current source tree.
+The authoritative implementation order, contracts and approval gates are in [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md). [`docs/development/REFACTORING_PLAN.md`](docs/development/REFACTORING_PLAN.md) is retained as historical technical evidence. Those components are proposals; they are not present in the current source tree.
 
 ## Version information
 
-- Project version: **0.2.0** (documentation label; no machine-readable package version is currently declared).
+- Project version: **0.2.0**, declared in `pyproject.toml`.
 - Baseline record: [`docs/development/BASELINE_0.2.0.md`](docs/development/BASELINE_0.2.0.md).
 - Changelog: [`CHANGELOG.md`](CHANGELOG.md).
+- Build roadmap: [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md).
 - Codebase analysis: [`docs/development/CODEBASE_ANALYSIS.md`](docs/development/CODEBASE_ANALYSIS.md).
-- Refactoring plan: [`docs/development/REFACTORING_PLAN.md`](docs/development/REFACTORING_PLAN.md).
+- Refactoring plan (historical): [`docs/development/REFACTORING_PLAN.md`](docs/development/REFACTORING_PLAN.md).
 - Data policy: [`docs/development/DATA_VERSIONING_POLICY.md`](docs/development/DATA_VERSIONING_POLICY.md).
 
 ## License and citation
