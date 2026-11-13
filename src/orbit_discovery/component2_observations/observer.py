@@ -325,7 +325,7 @@ def calculate_sky_coordinates(
     ra_deg = np.degrees(ra_rad)
     ra_deg = np.mod(ra_deg, 360.0)
 
-    dec_rad = np.arctan2(z_eq, np.sqrt(x**2 + y**2))
+    dec_rad = np.arctan2(z_eq, np.sqrt(x_eq**2 + y_eq**2))
     dec_deg = np.degrees(dec_rad)
     dec_deg = np.clip(dec_deg, -90.0, 90.0)
 

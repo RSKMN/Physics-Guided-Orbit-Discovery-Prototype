@@ -4,6 +4,33 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet use semantic-release automation or a machine-readable package version.
 
+## [0.3.0] - 2026-11-13
+
+### Added
+
+- Component 3 Phase 1 — Observation loader and state model: `src/orbit_discovery/component3/` package with `models.py`, `loader.py`, `__init__.py`, focused tests `tests/test_component3_phase1.py` (18 tests).
+- Component 3 Phase 2 — Trial-orbit propagation and observation prediction: `dynamics.py` (`build_trial_simulation`, `propagate_trial_state`, `propagate_trial_state_single`), `observation_model.py` (`predict_apparent_coordinates`, `predict_from_orbit_state`, `reconstruct_observer_config`, `get_obliquity_deg`), focused tests `tests/test_component3_phase2.py` (23 tests).
+- Docs: `docs/component-3/` with Phase 1, Phase 2, scientific verification, and Diagnostics 1–4 (C2 vs C3 prediction, C1 vs C3 planetary state, initial-state preservation, long-span stability).
+- Declination denominator fix in `src/orbit_discovery/component2_observations/observer.py`: `calculate_sky_coordinates` now uses `sqrt(x_eq^2 + y_eq^2)` (equatorial denominator) instead of `sqrt(x^2 + y^2)` (ecliptic denominator).
+- `tests/test_component2_observer.py`: added `CalculateSkyCoordinatesRegressionTests` validating declination against `frames.calculate_ra_dec`.
+
+### Changed
+
+- `pyproject.toml`, `README.md` and `CHANGELOG.md`: project version updated from 0.2.2 to 0.3.0.
+- `README.md`: rewritten to reflect v0.3.0 state — C1/C2 implemented and integrated, C3 Phase 1–2 implemented and verified, Component 3 Phase 3 not started, Components 4–5 not implemented.
+
+### Fixed
+
+- `src/orbit_discovery/component2_observations/observer.py`: `calculate_sky_coordinates()` declination now uses the equatorial denominator `sqrt(x_eq^2 + y_eq^2)`, matching `frames.calculate_ra_dec`. RA was already correct.
+
+### Documentation
+
+- `docs/component-3/PHASE_1_IMPLEMENTATION.md`, `PHASE_2_IMPLEMENTATION.md`, `PHASE_2_SCIENTIFIC_VERIFICATION.md`: C3 implementation status and verification records.
+- `docs/component-3/DIAGNOSTIC_1_C2_VS_C3_PREDICTION_COMPARISON.md`: C3 forward model matches C2 `calculate_sky_coordinates` and C2 frames reference at floating-point tolerance (32 samples).
+- `docs/component-3/DIAGNOSTIC_2_C1_VS_C3_PLANETARY_STATE_COMPARISON.md`: C3 planetary initial conditions and propagated states match C1 numerically for the standard circular-coplanar configuration.
+- `docs/component-3/DIAGNOSTIC_3_INITIAL_STATE_PRESERVATION.md`: C3 preserves supplied 6D heliocentric asteroid states at tolerance 1e-12 AU / 1e-12 AU/yr for all 5 test states; short propagation to 0.001 yr remains finite.
+- `docs/component-3/DIAGNOSTIC_4_LONG_SPAN_STABILITY.md`: 10-year C3 REBOUND/IAS15 integration stable; energy max relative drift ≤ 9.24e-16, angular momentum max relative drift ≤ 3.80e-16; all states finite; cross-run consistency within round-off.
+
 ## [0.2.2] - 2026-11-13
 
 ### Added

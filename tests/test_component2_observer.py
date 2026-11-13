@@ -12,6 +12,7 @@ Run directly with::
 from __future__ import annotations
 
 import inspect
+import math
 import sys
 import unittest
 from pathlib import Path
@@ -25,6 +26,7 @@ for _path in (_REPO_ROOT, _SRC_DIR):
         sys.path.insert(0, str(_path))
 
 from orbit_discovery.component2_observations import observer
+from orbit_discovery.component2_observations import frames
 from src.observer_model import (
     calculate_observer_positions as old_calculate_observer_positions,
     calculate_relative_positions as old_calculate_relative_positions,
@@ -295,6 +297,137 @@ class ObserverCompatibilityTests(unittest.TestCase):
         new_relative = observer.calculate_relative_positions(*relative_arguments)
 
         np.testing.assert_array_equal(old_relative, new_relative)
+
+
+class CalculateSkyCoordinatesRegressionTests(unittest.TestCase):
+    """Regression tests for calculate_sky_coordinates declination.
+
+    These tests compare observer.calculate_sky_coordinates() against the
+    established frames.calculate_ra_dec() implementation (which applies
+    ecliptic_to_equatorial first and then computes declination with the
+    correct equatorial denominator). They cover representative line-of-sight
+    vectors with non-zero ecliptic latitude so the previous declination
+    denominator bug (using the ecliptic denominator instead of the
+    equatorial denominator) would be detected.
+    """
+
+    def setUp(self):
+        self.obliquity_deg = 23.43928
+
+    def _reference_ra_dec(self, los_unit_vectors):
+        """Compute reference RA/Dec via ecliptic_to_equatorial + frames."""
+        equatorial = frames.ecliptic_to_equatorial(
+            los_unit_vectors, obliquity_deg=self.obliquity_deg
+        )
+        return frames.calculate_ra_dec(equatorial)
+
+    def test_matches_frames_calculate_ra_dec_for_cardinal_vectors(self):
+        los = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [-1.0, 0.0, 0.0],
+                [0.0, -1.0, 0.0],
+                [0.0, 0.0, 1.0],
+                [0.0, 0.0, -1.0],
+            ]
+        )
+        ra, dec = observer.calculate_sky_coordinates(los)
+        ref_ra, ref_dec = self._reference_ra_dec(los)
+
+        np.testing.assert_allclose(ra, ref_ra, rtol=0, atol=1e-12)
+        np.testing.assert_allclose(dec, ref_dec, rtol=0, atol=1e-12)
+
+    def test_matches_frames_calculate_ra_dec_for_non_zero_ecliptic_latitude(self):
+        """Vectors with non-zero ecliptic latitude expose the old bug."""
+        los = np.array(
+            [
+                [0.5, 0.5, 0.7071067811865476],  # high positive ecliptic latitude
+                [0.5, -0.5, -0.7071067811865476],  # high negative ecliptic latitude
+                [0.8660254037844386, 0.0, 0.5],  # 30 deg ecliptic latitude
+                [-0.8660254037844386, 0.0, -0.5],
+            ]
+        )
+        # Normalise so inputs are valid unit vectors.
+        los = los / np.linalg.norm(los, axis=1, keepdims=True)
+
+        ra, dec = observer.calculate_sky_coordinates(los)
+        ref_ra, ref_dec = self._reference_ra_dec(los)
+
+        np.testing.assert_allclose(ra, ref_ra, rtol=0, atol=1e-12)
+        np.testing.assert_allclose(dec, ref_dec, rtol=0, atol=1e-12)
+
+    def test_dec_uses_equatorial_denominator_not_ecliptic(self):
+        """Directly assert the equatorial denominator is used for declination.
+
+        With the old (buggy) expression, dec for [0, 1, 0] at default obliquity
+        was computed as atan2(z_eq, sqrt(x^2 + y^2)) instead of
+        atan2(z_eq, sqrt(x_eq^2 + y_eq^2)). The two differ whenever
+        z != 0 and the equatorial rotation changes the x-y radial distance.
+        """
+        obliquity = math.radians(self.obliquity_deg)
+        # Purely ecliptic-Y vector: rotates into equatorial Y and Z.
+        los = np.array([[0.0, 1.0, 0.0]])
+        x = los[:, 0]
+        y = los[:, 1]
+        z = los[:, 2]
+        x_eq = x
+        y_eq = y * math.cos(obliquity) - z * math.sin(obliquity)
+        z_eq = y * math.sin(obliquity) + z * math.cos(obliquity)
+
+        expected_dec_rad = math.atan2(z_eq[0], math.sqrt(x_eq[0] ** 2 + y_eq[0] ** 2))
+        buggy_dec_rad = math.atan2(z_eq[0], math.sqrt(x[0] ** 2 + y[0] ** 2))
+
+        ra, dec = observer.calculate_sky_coordinates(los)
+
+        # Correct value must match the equatorial-denominator formula.
+        np.testing.assert_allclose(
+            dec[0],
+            math.degrees(expected_dec_rad),
+            rtol=0,
+            atol=1e-12,
+        )
+        # And must not match the old buggy ecliptic-denominator formula.
+        self.assertNotAlmostEqual(dec[0], math.degrees(buggy_dec_rad), places=10)
+
+    def test_ra_wraparound_and_dec_range(self):
+        """RA is normalized to [0, 360) and Dec stays within [-90, 90]."""
+        los = np.array(
+            [
+                [-1.0, -1.0, 0.5],
+                [-1.0, -1.0, -0.5],
+                [1.0, -1.0, 0.5],
+                [1.0, -1.0, -0.5],
+            ]
+        )
+        los = los / np.linalg.norm(los, axis=1, keepdims=True)
+
+        ra, dec = observer.calculate_sky_coordinates(los)
+
+        self.assertTrue(np.all((ra >= 0.0) & (ra < 360.0)), f"RA out of range: {ra}")
+        self.assertTrue(np.all((dec >= -90.0) & (dec <= 90.0)), f"Dec out of range: {dec}")
+
+    def test_ra_wraps_at_360_boundary(self):
+        """A vector just past the +x axis wraps RA correctly (near 360/0)."""
+        los = np.array([[1.0, -1e-9, 0.0]])
+        ra, _ = observer.calculate_sky_coordinates(los)
+        self.assertTrue(0.0 <= ra[0] < 360.0, f"RA={ra[0]} not in [0, 360)")
+
+    def test_pole_vectors(self):
+        """North and south ecliptic poles map to +/- (90 - obliquity) declination.
+
+        Under an ecliptic-to-equatorial rotation by obliquity, the ecliptic
+        north pole rotates toward the equatorial pole but only reaches
+        declination = 90 - obliquity (since the rotation axis is the x-axis).
+        """
+        los = np.array([[0.0, 0.0, 1.0], [0.0, 0.0, -1.0]])
+        ra, dec = observer.calculate_sky_coordinates(los)
+
+        expected_dec = 90.0 - self.obliquity_deg
+        np.testing.assert_allclose(
+            dec, [expected_dec, -expected_dec], rtol=0, atol=1e-12
+        )
+        self.assertTrue(np.all((ra >= 0.0) & (ra < 360.0)))
 
 
 if __name__ == "__main__":

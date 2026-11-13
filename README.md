@@ -2,15 +2,15 @@
 
 A research prototype for physics-guided asteroid orbit discovery. The project combines N-body simulation, synthetic astrometry and, in later stages, orbit estimation and active observation selection.
 
-**Current version:** 0.2.2  
-**Status:** Components 1 and 2 implemented and integrated; physical consistency verified (Stage 2.7.1). Components 3–5 planned and **not implemented**.  
+**Current version:** 0.3.0
+**Status:** Components 1 and 2 implemented and integrated; physical consistency verified (Stage 2.7.1). Component 3 Phase 1 (observation loader and state model) and Phase 2 (trial-orbit propagation and observation prediction) implemented and verified (Diagnostics 1–4 accepted). Component 3 Phase 3 (orbit fitting) and Components 4–5 are **not implemented**.
 **Baseline:** see [`docs/development/BASELINE_0.2.0.md`](docs/development/BASELINE_0.2.0.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Research motivation
 
 Discovering and characterising asteroids from sparse astrometry requires more than fitting a curve to sky positions. The observable measurements depend on the target's dynamics, the observer's motion, the geometry of the Solar System and the times at which observations are taken. A reproducible synthetic testbed makes it possible to study those dependencies before applying a method to real survey data.
 
-This prototype is intended to support experiments in which physical dynamics and candidate-orbit uncertainty guide the choice of the next observation. Version 0.2.2 provides the simulation and observation-generation half of that pipeline, with C1/C2 integration and physical-consistency verification complete. It does not yet estimate orbits or select observations.
+This prototype is intended to support experiments in which physical dynamics and candidate-orbit uncertainty guide the choice of the next observation. Version 0.3.0 provides the simulation and observation-generation half of that pipeline (C1/C2) plus the Component 3 forward model: trial-orbit propagation and apparent RA/Dec prediction. C1/C2 integration and physical-consistency verification are complete. It does not yet perform orbit fitting, candidate generation, or observation selection.
 
 ## Problem statement
 
@@ -36,12 +36,14 @@ The current prototype addresses the data-generation preconditions for that probl
 
 - **Component 1:** configurable REBOUND/IAS15 simulation of a massless asteroid under the gravity of the Sun, Mercury, Venus, Earth and Jupiter.
 - **Component 2:** fixed-cadence synthetic observation generation using an idealized circular observer, ecliptic-to-equatorial rotation, RA/Dec calculation and seeded Gaussian angular noise, with ground truth stored separately.
+- **Component 3 (Phase 1):** strict observation loader and state model — observation dataset validation, truth separation (`true_*` columns rejected), 6D heliocentric `OrbitState`, `ObservationDataset`, `OrbitCandidate`, `BestFitResult`, `EstimationResult`.
+- **Component 3 (Phase 2):** trial-orbit propagation and apparent RA/Dec prediction — REBOUND/IAS15 forward propagation matching C1's planetary model, observer geometry reconstruction from metadata, ecliptic-to-equatorial rotation, RA normalized to [0, 360), Dec clipped to [-90, 90].
 - **Scenarios:** standard (`e = 0.2`, `i = 0°`), eccentric (`e = 0.5`) and inclined (`e = 0.3`, `i = 10°`).
 - **Data products:** trajectories, run metadata, observation tables, observation metadata and separate ground-truth files.
-- **Validation:** read-only checks for trajectory schema, orbital geometry, Kepler period, integrator tolerance, frame conversion, noise reproducibility, observation-dataset integrity and truth separation.
+- **Validation:** read-only checks for trajectory schema, orbital geometry, Kepler period, integrator tolerance, frame conversion, noise reproducibility, observation-dataset integrity and truth separation; C3 focused test suites (Phase 1: 18 tests, Phase 2: 23 tests).
 - **Analysis:** comparative plots and a summary table for the three observation datasets.
 - **Legacy validation:** separate two-body, N-body and Eros/Horizons workflows are retained as historical evidence.
-- **Integration:** C1/C2 end-to-end pipeline verified (Stage 2.7); gravitational-parameter consistency between C1 and downstream analytic modules verified and corrected (Stage 2.7.1).
+- **Integration:** C1/C2 end-to-end pipeline verified (Stage 2.7); gravitational-parameter consistency between C1 and downstream analytic modules verified and corrected (Stage 2.7.1); C2 vs C3 forward-model prediction match verified (Diagnostic 1); C1 vs C3 planetary-state match verified (Diagnostic 2); C3 initial-state preservation verified at tolerance 1e-12 AU / 1e-12 AU/yr (Diagnostic 3); C3 10-year long-span stability and conservation verified (Diagnostic 4).
 
 ## Component architecture
 
@@ -65,25 +67,31 @@ Component 2: observation generator
         +--> data/observations/<dataset>/observations.csv
         +--> data/observations/<dataset>/metadata.json
 
+Component 3 (Phase 1-2): observation loader and forward model
+  observation CSV -> loader (validate, truth separation) -> OrbitState
+  OrbitState -> build_trial_simulation -> propagate_trial_state -> predict_apparent_coordinates -> RA/Dec
+
 Planned, not implemented:
-Component 3: orbit estimation and candidate generation
+Component 3 Phase 3: orbit fitting and candidate-orbit generation
 Component 4: active observation selection
 Component 5: evaluation and schedule comparison
 ```
 
 ## Current implementation status
 
-| Component | Status in 0.2.2 | Notes |
+| Component | Status in 0.3.0 | Notes |
 |---|---|---|
 | Component 1 — N-body simulator | Implemented | Configurable synthetic scenarios; writes trajectory, config and metadata |
 | Component 2 — Synthetic observations | Implemented | Fixed cadence, idealized observer, seeded Gaussian noise, truth separated into ground_truth.json |
 | C1/C2 integration | Complete | End-to-end pipeline verified (Stage 2.7): 10/10 integration tests pass |
 | Physical consistency (Stage 2.7.1) | Complete | Gravitational parameter aligned with C1's REBOUND model (MU_REBOUND = 39.476926421373); C1 physics untouched |
-| Component 3 — Orbit estimation | **Not implemented** | No fitter, candidate model, covariance or orbit-solution schema |
+| Component 3 Phase 1 — Observation loader and state model | Implemented | `src/orbit_discovery/component3/models.py`, `loader.py`; truth separation enforced (`true_*` columns rejected) |
+| Component 3 Phase 2 — Trial-orbit propagation and observation prediction | Implemented | `dynamics.py` (build_trial_simulation, propagate_trial_state), `observation_model.py` (predict_apparent_coordinates); C2 vs C3 prediction match verified (Diagnostic 1) |
+| Component 3 Phase 3 — Orbit fitting | **Not implemented** | No least-squares fitting, residual weighting, candidate generation, or covariance |
 | Component 4 — Active selection | **Not implemented** | No scheduler, candidate scoring or future observation window |
 | Component 5 — Evaluation | **Not implemented** | No equal-budget comparison harness or calibration study |
 
-Do not describe Components 3–5 as working features. The analysis in [`docs/development/CODEBASE_ANALYSIS.md`](docs/development/CODEBASE_ANALYSIS.md) records the implemented/not-implemented boundary in detail.
+Do not describe Component 3 Phase 3 or Components 4–5 as working features. Component 3 Phase 1–2 are implemented and verified; see `docs/component-3/` for implementation records and Diagnostics 1–4. The analysis in [`docs/development/CODEBASE_ANALYSIS.md`](docs/development/CODEBASE_ANALYSIS.md) records the implemented/not-implemented boundary in detail.
 
 ## Repository structure
 
@@ -101,8 +109,8 @@ physics-guided-orbit-discovery-prototype/
 │       └── BASELINE_0.2.0.md
 ├── plots/                   # legacy generated figures (Git-ignored)
 ├── results/                 # comparison summary and generated figures
-├── src/                     # 12 Python source files
-├── tests/                   # 19 script-style validation files
+├── src/                     # 12 Python source files + component3 package (models, loader, dynamics, observation_model)
+├── tests/                   # 19 script-style validation files + C3 phase1/phase2 focused test suites
 ├── .gitignore
 ├── CHANGELOG.md
 ├── README.md
@@ -170,7 +178,7 @@ The project uses pytest. Run the full suite from the repository root:
 .\.venv\Scripts\python.exe -m pytest tests/ -q
 ```
 
-The verified result for 0.2.2: **175 passed, 1 deselected, 0 failures** (Python 3.13.9, `.venv`).
+The verified result for 0.3.0: **223 passed, 1 deselected, 0 failures** (Python 3.13.9, `.venv`).
 
 The following read-only validation scripts were also executed against the baseline and all exited with status 0:
 
@@ -244,7 +252,7 @@ The authoritative implementation order, contracts and approval gates are in [`do
 
 ## Version information
 
-- Project version: **0.2.2**, declared in `pyproject.toml`.
+- Project version: **0.3.0**, declared in `pyproject.toml`.
 - Baseline record: [`docs/development/BASELINE_0.2.0.md`](docs/development/BASELINE_0.2.0.md).
 - Changelog: [`CHANGELOG.md`](CHANGELOG.md).
 - Build roadmap: [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md).
