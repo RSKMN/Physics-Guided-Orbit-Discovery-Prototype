@@ -1,4 +1,6 @@
-rebound
-numpy
-pandas
-matplotlib
+# Runtime dependencies.
+# Keep in sync with [project].dependencies in pyproject.toml.
+rebound>=5.2,<6
+numpy>=2.5,<3
+pandas>=3.1,<4
+matplotlib>=3.11,<4

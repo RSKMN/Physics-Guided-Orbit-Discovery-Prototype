@@ -25,8 +25,11 @@ network = [
     "astroquery>=0.4.11,<0.5",
 ]
 test = [
-    "pytest",
+    "pytest>=8,<10",
 ]
+
+[project.scripts]
+orbit = "orbit_discovery.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -35,3 +38,14 @@ package-dir = {"" = "src"}
 where = ["src"]
 include = ["orbit_discovery*"]
 namespaces = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The default suite is offline and hermetic. Tests that require external
+# services or network access are marked ``integration`` and must be selected
+# explicitly with ``pytest -m integration``.
+addopts = "-m 'not integration'"
+markers = [
+    "integration: requires an external service, network access, or optional dependency",
+    "network: requires network access (a subset of integration tests)",
+]

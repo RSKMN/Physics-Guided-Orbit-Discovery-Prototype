@@ -1,0 +1,14 @@
+# Development and test dependencies.
+#
+# Install with:
+#   python -m pip install -r requirements-dev.txt
+#
+# For an editable package install use:
+#   python -m pip install -e ".[test,network]"
+-r requirements.txt
+
+pytest>=8,<10
+
+# Optional network integration tests (tests/test_horizons_loader.py).
+# The default offline suite does not import this package.
+astroquery>=0.4.11,<0.5

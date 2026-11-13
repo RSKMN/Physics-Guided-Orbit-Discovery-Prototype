@@ -1,8 +1,20 @@
+"""Component 1 repeatability check.
 
-from pathlib import Path
-import shutil
+The test writes only to a pytest ``tmp_path`` directory. It can also be run as
+a standalone script, in which case it uses a temporary directory unless an
+explicit output root is supplied:
+
+    python tests/test_repeatability.py [OUTPUT_ROOT]
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
 import subprocess
 import sys
+import tempfile
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -11,70 +23,92 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "configs" / "synthetic_asteroid.json"
 SIMULATOR = ROOT / "src" / "configurable_simulator.py"
 
-RUN_A = ROOT / "data" / "repeatability" / "run_a"
-RUN_B = ROOT / "data" / "repeatability" / "run_b"
+COLUMNS = [
+    "time_years",
+    "x_au",
+    "y_au",
+    "z_au",
+    "vx_au_per_year",
+    "vy_au_per_year",
+    "vz_au_per_year",
+]
 
-# Read the original configuration and make temporary copies.
-import json
 
-with CONFIG.open("r", encoding="utf-8") as f:
-    base_config = json.load(f)
+def run_repeatability_pair(base_config_path: Path, output_root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Run the same configuration twice and return both trajectories.
 
-temp_dir = ROOT / "configs" / "repeatability_temp"
-temp_dir.mkdir(parents=True, exist_ok=True)
+    All generated files are placed under ``output_root``. The function does not
+    touch tracked ``data/`` or ``configs/`` files.
+    """
 
-config_a = temp_dir / "run_a.json"
-config_b = temp_dir / "run_b.json"
+    output_root = Path(output_root)
+    config_dir = output_root / "configs"
+    config_dir.mkdir(parents=True, exist_ok=True)
 
-for path, output_dir in [
-    (config_a, RUN_A),
-    (config_b, RUN_B),
-]:
-    config = json.loads(json.dumps(base_config))
-    config["output"]["directory"] = str(output_dir.relative_to(ROOT))
+    with Path(base_config_path).open("r", encoding="utf-8") as file:
+        base_config = json.load(file)
 
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(config, f, indent=4)
+    frames = []
+    for run_name in ("run_a", "run_b"):
+        run_dir = output_root / run_name
+        config = json.loads(json.dumps(base_config))
+        config["output"]["directory"] = str(run_dir)
+        config["output"]["save_plot"] = False
 
-try:
-    # Run the exact same configuration twice.
-    subprocess.run(
-        [sys.executable, str(SIMULATOR), str(config_a)],
-        cwd=ROOT,
-        check=True,
-    )
-    subprocess.run(
-        [sys.executable, str(SIMULATOR), str(config_b)],
-        cwd=ROOT,
-        check=True,
-    )
+        config_path = config_dir / f"{run_name}.json"
+        with config_path.open("w", encoding="utf-8") as file:
+            json.dump(config, file, indent=4)
 
-    df_a = pd.read_csv(RUN_A / "trajectory.csv")
-    df_b = pd.read_csv(RUN_B / "trajectory.csv")
+        subprocess.run(
+            [sys.executable, str(SIMULATOR), str(config_path)],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        frames.append(pd.read_csv(run_dir / "trajectory.csv"))
 
-    if df_a.shape != df_b.shape:
-        raise AssertionError("The two trajectory files have different shapes.")
+    return frames[0], frames[1]
 
-    columns = [
-        "time_years",
-        "x_au", "y_au", "z_au",
-        "vx_au_per_year",
-        "vy_au_per_year",
-        "vz_au_per_year",
-    ]
 
-    values_a = df_a[columns].to_numpy()
-    values_b = df_b[columns].to_numpy()
+def test_repeatability(tmp_path: Path) -> None:
+    """An identical configuration must produce identical trajectory values."""
 
-    max_difference = np.max(np.abs(values_a - values_b))
+    df_a, df_b = run_repeatability_pair(CONFIG, tmp_path)
 
+    assert df_a.shape == df_b.shape
+
+    values_a = df_a[COLUMNS].to_numpy()
+    values_b = df_b[COLUMNS].to_numpy()
+
+    max_difference = float(np.max(np.abs(values_a - values_b)))
     print(f"\nMaximum absolute difference: {max_difference:.12e}")
 
-    if np.allclose(values_a, values_b, rtol=1e-10, atol=1e-12):
-        print("PASS: identical configuration produces repeatable output.")
-    else:
-        raise AssertionError("Repeatability test failed.")
+    np.testing.assert_allclose(values_a, values_b, rtol=1e-10, atol=1e-12)
 
-finally:
-    # Remove only the temporary configuration files.
-    shutil.rmtree(temp_dir, ignore_errors=True)
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "output_root",
+        nargs="?",
+        help="Directory for generated runs (default: a temporary directory).",
+    )
+    args = parser.parse_args(argv)
+
+    if args.output_root is None:
+        with tempfile.TemporaryDirectory(prefix="orbit-repeatability-") as tmp:
+            df_a, df_b = run_repeatability_pair(CONFIG, Path(tmp))
+    else:
+        df_a, df_b = run_repeatability_pair(CONFIG, Path(args.output_root))
+
+    values_a = df_a[COLUMNS].to_numpy()
+    values_b = df_b[COLUMNS].to_numpy()
+    max_difference = float(np.max(np.abs(values_a - values_b)))
+    print(f"\nMaximum absolute difference: {max_difference:.12e}")
+    print("PASS: identical configuration produces repeatable output.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

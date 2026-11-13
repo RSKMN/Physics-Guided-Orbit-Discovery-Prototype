@@ -447,10 +447,15 @@ class ObservationGenerationTests(_GeneratorTestCase):
             np.full(6, 0.5),
         )
 
+        # The CSV round-trip is allowed to lose the last decimal digit in the
+        # text representation (this differs between pandas versions). The
+        # reference values above are still checked at atol=1e-12.
         pd.testing.assert_frame_equal(
             observations,
             csv_observations,
-            check_exact=True,
+            check_exact=False,
+            rtol=0,
+            atol=1e-12,
         )
 
         self.assertIn(

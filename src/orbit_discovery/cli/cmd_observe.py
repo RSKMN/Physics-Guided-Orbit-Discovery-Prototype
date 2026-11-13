@@ -14,7 +14,6 @@ from pathlib import Path
 from orbit_discovery.core.paths import (
     ProjectRootNotFoundError,
     resolve_config_path,
-    resolve_output_root,
     resolve_project_root,
 )
 
@@ -60,7 +59,6 @@ def cmd(args: list[str] | None = None) -> int:
         print("Options:")
         print("  --config CONFIG          Path to observation JSON config (default: configs/synthetic_observations.json)")
         print("  --project-root DIR       Explicit project root directory")
-        print("  --output-root DIR        Base output directory (relative to project root)")
         print("  --help, -h               Show this help message and exit")
         print("  --version, -V            Show program version and exit")
         print()
@@ -90,6 +88,20 @@ def cmd(args: list[str] | None = None) -> int:
             i += 2
         else:
             i += 1
+
+    # --- Check for unsupported --output-root argument ---
+    # The observation generator resolves its output directory from the
+    # configuration file. CLI-level redirection is not supported in this phase,
+    # so reject it explicitly rather than silently ignoring it.
+    if output_root_arg is not None:
+        print(
+            "Error: --output-root is not supported in this phase. "
+            "The observation generator determines its output directory from "
+            "the configuration file's output.directory field. "
+            "Please omit --output-root and use --config to control output location.",
+            file=sys.stderr,
+        )
+        return 1
 
     # --- Resolve project root ---
     try:
@@ -169,13 +181,6 @@ def cmd(args: list[str] | None = None) -> int:
     print(f"CSV file: {csv_path}")
     print(f"Metadata file: {metadata_path}")
     print(f"Configuration file: {resolved_config_path}")
-
-    if output_root_arg is not None:
-        try:
-            resolved_output_root = resolve_output_root(output_root_arg, project_root)
-            print(f"Output root (configured): {resolved_output_root}")
-        except ProjectRootNotFoundError:
-            print(f"Output root (configured): {output_root_arg}")
 
     print(f"Project root: {project_root}")
 

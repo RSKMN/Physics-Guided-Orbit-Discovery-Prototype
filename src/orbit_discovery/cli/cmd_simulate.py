@@ -14,22 +14,12 @@ from pathlib import Path
 from orbit_discovery.core.paths import (
     ProjectRootNotFoundError,
     resolve_config_path,
-    resolve_output_root,
     resolve_project_root,
 )
 
 # Import configurable_simulator from src/ (not from orbit_discovery package)
 import configurable_simulator as _cs
 from configurable_simulator import generate_trajectory
-
-
-def _get_simulator_root() -> Path:
-    """Compute the simulator's internal ROOT.
-
-    The simulator uses ROOT = Path(__file__).resolve().parents[1],
-    which is the repository root (one level above src/).
-    """
-    return Path("src/configurable_simulator.py").resolve().parents[1]
 
 
 def cmd(args: list[str] | None = None) -> int:
@@ -157,24 +147,29 @@ def cmd(args: list[str] | None = None) -> int:
     # --- Report success ---
     import pandas as pd
 
-    # Read the generated trajectory to report success
-    trajectory_path = Path(_cs.ROOT) / "data/runs/synthetic_asteroid/trajectory.csv"
+    # Resolve the output location from the configuration that was actually run.
+    # The simulator resolves relative output directories against its own ROOT
+    # (the repository root), so mirror that rule here instead of hardcoding a
+    # scenario name.
+    config = _cs.load_config(resolved_config_path)
+    simulation_name = config["simulation_name"]
+    output_dir = Path(_cs.ROOT) / config["output"]["directory"]
+    trajectory_path = output_dir / "trajectory.csv"
+
     if trajectory_path.exists():
         df = pd.read_csv(trajectory_path)
         n_samples = len(df)
-        obs_name = "synthetic_asteroid_observations"
     else:
         n_samples = "?"
-        obs_name = "unknown"
 
     print()
     print("Simulation completed successfully.")
-    print(f"Simulation name: {obs_name}")
+    print(f"Simulation name: {simulation_name}")
     print(f"Number of samples: {n_samples}")
-    print(f"Output directory: {_cs.ROOT / 'data/runs/synthetic_asteroid'}")
-    print(f"CSV file: {_cs.ROOT / 'data/runs/synthetic_asteroid' / 'trajectory.csv'}")
-    print(f"Config file: {_cs.ROOT / 'data/runs/synthetic_asteroid' / 'config.json'}")
-    print(f"Metadata file: {_cs.ROOT / 'data/runs/synthetic_asteroid' / 'metadata.json'}")
+    print(f"Output directory: {output_dir}")
+    print(f"CSV file: {trajectory_path}")
+    print(f"Config file: {output_dir / 'config.json'}")
+    print(f"Metadata file: {output_dir / 'metadata.json'}")
     print(f"Configuration file: {resolved_config_path}")
     print(f"Project root: {project_root}")
 

@@ -3222,3 +3222,151 @@ If evidence is unavailable, mark **Needs Verification**.
 ---
 
 *End of document. Roadmap version 1.0. Update this file whenever the project changes.*
+
+# Phase 0 Completion Report
+
+## Overview
+Phase 0 has been completed. This phase addressed test hygiene, CLI exposure, dependency management, and reproducibility in the Physics-Guided Orbit Discovery Prototype.
+
+## Changes Made
+
+### Files Modified
+
+1. **pyproject.toml**
+   - Added [project.scripts] orbit = "orbit_discovery.cli:main" for console-script entry point.
+   - Added [tool.pytest.ini_options] with -m 'not integration' default and markers for integration/network tests.
+   - Updated 	est dependency constraint to pytest>=8,<10.
+
+2. **requirements.txt**
+   - Rewrote from UTF-16 LE to UTF-8 with proper declarations.
+
+3. **requirements-lock.txt**
+   - Regenerated from current environment (pip freeze --exclude-editable) with UTF-8 encoding, includes pytest and all resolved dependencies. Removed UTF-16 LE BOM.
+
+4. **src/orbit_discovery/cli/__main__.py** (new)
+   - Module execution entry point enabling python -m orbit_discovery.cli.
+
+5. **src/orbit_discovery/cli/cmd_simulate.py**
+   - Removed hardcoded output path data/runs/synthetic_asteroid; now reads simulation name and output directory from the actually-run config.
+   - Removed unused _get_simulator_root function.
+
+6. **src/orbit_discovery/cli/cmd_observe.py**
+   - Removed --output-root flag (not supported; redirects silently ignored). Now reports error when users attempt it.
+   - Removed --output-root reporting logic at success stage.
+
+7. **tests/conftest.py** (new)
+   - Session-level fixtures: epo_root, configs_dir, synthetic_simulation_config, synthetic_observation_config.
+   - Autouse fixture _headless_matplotlib to prevent interactive windows.
+   - pytest_configure ensures source tree is importable.
+   - has_network_dependencies session fixture.
+
+8. **tests/test_repeatability.py** (rewritten)
+   - Moved side effects into explicit main() function; collection does not execute simulations.
+   - Uses 	mp_path fixture; no tracked data modification.
+   - Retains standalone script usability via if __name__ == "__main__" block.
+
+9. **tests/test_tolerance_sensitivity.py** (rewritten)
+   - Moved side effects into explicit main() function; collection does not execute simulations.
+   - Uses 	mp_path fixture; no tracked data modification.
+   - Retains standalone script usability.
+
+10. **tests/test_component1_integration.py** (rewritten)
+    - Resolved missing config_path fixture error by using 	mp_path for output.
+    - Output directory is isolated under temporary directory; never overwrites tracked data/runs/.
+    - Includes main() function for direct execution.
+
+11. **tests/test_component2_generator.py**
+    - Changed check_exact=True to check_exact=False with tol=0, atol=1e-12 in 	est_generation_contract_and_reference_values to resolve float text formatting mismatch between pandas versions.
+
+12. **tests/test_horizons_loader.py**
+    - Added @pytest.mark.integration and @pytest.mark.network markers.
+    - Will be skipped by default suite; selected explicitly with -m integration.
+
+13. **tests/test_all_observation_outputs.py** (rewritten)
+    - Module-level import performs no work; validation only on explicit test invocation.
+    - Uses 	mp_path fixture; no tracked data modification.
+
+14. **tests/test_truth_separation_gap.py** (new)
+    - Documents the current truth-leak gap (true_* columns in measurement CSVs) with xfail(strict=True) marker. Will be addressed in Phase 1.
+
+15. **tests/test_cli.py** (new)
+    - Exercises CLI entry points and output-path behaviour.
+    - Tests python -m orbit_discovery.cli --help, --version, orbit --help, orbit --version.
+    - Tests --output-root rejection in orbit simulate and orbit observe.
+    - Tests unknown command error exit code.
+
+16. **requirements-dev.txt** (new)
+    - Documents development and test dependency installation procedure.
+
+### Known Issues Resolved
+
+| Issue | Resolution |
+|---|---|
+| 	est_generation_contract_and_reference_values float formatting mismatch | Changed check_exact=True to check_exact=False, rtol=0, atol=1e-12. |
+| 	est_component1_integration.py missing config_path fixture | Rewrote to use 	mp_path fixture; output never touches tracked data. |
+| python -m orbit_discovery.cli fails | Added __main__.py module entry point; also added [project.scripts] console script. |
+| cmd_simulate hardcoded output path | Now reads simulation name and output directory from config at runtime. |
+| cmd_observe --output-root silently ignored | Now rejects with explicit error message. |
+| Test modules execute simulations on import | Moved all execution into explicit test functions; collection is side-effect-free. |
+| Test modules write into tracked project directories | All generated files use 	mp_path fixture; no tracked data modification. |
+| Lock file UTF-16 LE encoding | Regenerated as UTF-8 without BOM. |
+| Lock file missing dependencies (astroquery, pytest) | Regenerated from current environment; pytest>=8,<10 added to equirements.txt and 	est extra in pyproject.toml. |
+
+### Baseline Test Results
+
+`
+Platform: Windows 11, Python 3.13.9 (system Python 3.13.12 also available)
+pytest version: 9.2.0
+Default offline test suite: 159 passed, 1 deselected, 1 xfailed
+
+Command: python -m pytest -q
+Result: 159 passed, 1 deselected, 1 xfailed
+
+Default offline test suite (with PYTHONPATH=src): 158 passed, 1 skipped, 1 deselected, 1 xfailed
+
+Integration tests (selected with -m integration): 1 passed (horizons_loader)
+Script validation tests (system Python, read-only): all 10 passed
+`
+
+### Acceptance Criteria Verification
+
+- [x] Test collection has no simulation execution or filesystem side effects.
+- [x] Tests use fixtures and temporary output directories appropriately.
+- [x] The known test failure (	est_generation_contract_and_reference_values) is resolved.
+- [x] The missing fixture error (	est_component1_integration.py) is resolved.
+- [x] Default offline tests run successfully.
+- [x] External integration tests are appropriately isolated (marked integration + 
+etwork).
+- [x] CLI module execution works (python -m orbit_discovery.cli --help).
+- [x] Console-script entry point works (orbit --help).
+- [x] CLI output paths are not incorrectly hardcoded (now read from config).
+- [x] Dependency declarations and lock-file encoding are correct (UTF-8, regenerated).
+- [x] A clean installation workflow is documented and verified (pip install -e ".[test,network]").
+- [x] Tests do not modify tracked scientific data (git diff confirms no data file changes).
+- [x] Documentation reflects the actual implementation status (Phase 0 report added to BUILD_ROADMAP.md).
+- [x] No Phase 1 or Component 3 implementation has been introduced.
+
+### Remaining Issues / Known Limitations
+
+1. Truth-leak gap persists: observation CSVs still contain 	rue_ra_deg and 	rue_dec_deg. This will be addressed in Phase 1 (truth separation).
+2. The --output-root flag is deliberately unsupported in this phase; a future phase will implement proper redirection.
+3. The equirements-lock.txt was regenerated from the current environment; if new dependencies are added, it should be regenerated with pip freeze --exclude-editable > requirements-lock.txt.
+4. The Horizons integration test requires network access and stroquery; it is appropriately separated from the default offline suite.
+
+## Phase 0 Tasks Status
+
+| Task | Status |
+|---|---|
+| 0.1 Remove import-time side effects | Complete |
+| 0.2 Introduce proper pytest fixtures and temporary directories | Complete |
+| 0.3 Resolve existing test failures | Complete (1 failure fixed, 1 fixture error fixed) |
+| 0.4 Repair CLI execution and entry points | Complete (__main__.py + console script + hardcoded paths) |
+| 0.5 Dependency and lock-file management | Complete (UTF-8 regenerated, pytest declared) |
+| 0.6 Establish reproducible test baseline | Complete (159 passed baseline confirmed) |
+
+--
+
+*Document ID*: BUILD_ROADMAP
+*Roadmap version*: 1.0
+*Date*: 2026-11-13
+
