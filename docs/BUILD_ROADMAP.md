@@ -4,7 +4,7 @@
 |---|---|
 | Document ID | `BUILD_ROADMAP` |
 | Roadmap version | **1.0** |
-| Project version at this revision | **0.2.2** (`pyproject.toml`) |
+| Project version at this revision | **0.4.0** (`pyproject.toml`) |
 | Date | **2026-11-13** |
 | Status | **Living document — single source of truth** |
 | Owner | Project maintainer |
@@ -44,7 +44,7 @@
 
 - Repository name: `physics-guided-orbit-discovery-prototype`.
 - Python distribution name: `orbit-discovery`.
-- Current declared version: `0.2.2` in `pyproject.toml`; the README, changelog and CLI strings also use `0.2.2`.
+- Current declared version: `0.4.0` in `pyproject.toml`; the README, changelog and CLI strings also use `0.4.0`.
 - Primary language: Python 3.12/3.13.
 - Core scientific library: REBOUND 5.2.2 with the IAS15 integrator.
 
@@ -3007,6 +3007,7 @@ This table is append-only. Do not delete old entries. Each project change that a
 |---|---|---|---|
 | **1.0** | **0.2.0** | **2026-11-13** | Initial living roadmap based on full repository inspection. Recorded: C1 and C2 implemented with foundation gaps; C3–C5 not started; truth leak in observation CSV; linear interpolation error 0.223″ median / 1.731″ max; 25.6% of epochs below 30° elongation; CLI dispatch exists but no console entry point; test suite 142 passed / 1 failed / 1 error under system Python and not runnable in `.venv`; import-time test side effects discovered and reverted. Established Phase 0–8 plan, Gate F/G3/G4, contracts, completion criteria and maintenance rules. Final consistency pass aligned effort totals, spelling/terminology and status-label usage, fixed table-field formatting, clarified oracle isolation, C5 success criteria and light-time/v2 sequencing, and cross-linked this roadmap from `README.md` and the historical refactoring plan. |
 | **1.0** | **0.2.2** | **2026-11-13** | Release v0.2.2: C1/C2 baseline stabilized and physically consistent. Stage 2.7 (End-to-End Integration) complete — 10/10 end-to-end integration tests pass; C1→C2 pipeline verified with truth separation. Stage 2.7.1 (Physical Consistency Audit) complete — Defect D-1 (MU mismatch) resolved: downstream analytic modules now use `MU_REBOUND = 39.476926421373` matching C1's REBOUND `sim.G`; element conversion round trip exact at machine precision (~4.4e-16 AU); observer velocity corrected to `sqrt(MU_REBOUND/r)` = 6.283 AU/yr at r=1 AU; C1 simulation physics untouched. Regression suite: 175 passed, 1 deselected, 0 failures. Components 3–5 not implemented. Version history is append-only; prior row retained. |
+| **1.0** | **0.4.0** | **2026-11-13** | Release v0.4.0: Component 3 Phase 3B residual calculation implemented, hardened, tested and released. Added `src/orbit_discovery/component3/residuals.py` (wrapped RA residuals, declination residuals, cos(dec) tangent-plane weighting applied exactly once using observed declination, arcsec conversion, normalization by per-observation sigmas, pole screening `|cos(dec)| >= 1e-12`, chi-square `r^T r`; NumPy-only, no optimizer/estimator/forward-model change, no new dependencies, no ground-truth access). Added `tests/test_component3_residuals.py` (57 tests). Phase 3A design approved; Phase 3B implemented/hardened/tested/approved; Phase 3C optimizer not started; Phases 4–8 pending. Regression suite: 280 passed, 1 deselected, 0 failures. Focused residual tests: 57 passed, 0 failed. Version history is append-only; prior rows retained. |
 
 ### 13.1 Change-log rules
 

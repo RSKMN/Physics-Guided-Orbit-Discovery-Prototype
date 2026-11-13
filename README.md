@@ -2,15 +2,15 @@
 
 A research prototype for physics-guided asteroid orbit discovery. The project combines N-body simulation, synthetic astrometry and, in later stages, orbit estimation and active observation selection.
 
-**Current version:** 0.3.0
-**Status:** Components 1 and 2 implemented and integrated; physical consistency verified (Stage 2.7.1). Component 3 Phase 1 (observation loader and state model) and Phase 2 (trial-orbit propagation and observation prediction) implemented and verified (Diagnostics 1–4 accepted). Component 3 Phase 3 (orbit fitting) and Components 4–5 are **not implemented**.
+**Current version:** 0.4.0
+**Status:** Components 1 and 2 implemented and integrated; physical consistency verified (Stage 2.7.1). Component 3 Phase 1 (observation loader and state model) and Phase 2 (trial-orbit propagation and observation prediction) implemented and verified (Diagnostics 1–4 accepted). Component 3 Phase 3 (orbit fitting): Phase 3A design approved; Phase 3B residual calculation implemented, hardened, tested and approved; Phase 3C optimizer not started. Components 4–5 are **not implemented**.
 **Baseline:** see [`docs/development/BASELINE_0.2.0.md`](docs/development/BASELINE_0.2.0.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Research motivation
 
 Discovering and characterising asteroids from sparse astrometry requires more than fitting a curve to sky positions. The observable measurements depend on the target's dynamics, the observer's motion, the geometry of the Solar System and the times at which observations are taken. A reproducible synthetic testbed makes it possible to study those dependencies before applying a method to real survey data.
 
-This prototype is intended to support experiments in which physical dynamics and candidate-orbit uncertainty guide the choice of the next observation. Version 0.3.0 provides the simulation and observation-generation half of that pipeline (C1/C2) plus the Component 3 forward model: trial-orbit propagation and apparent RA/Dec prediction. C1/C2 integration and physical-consistency verification are complete. It does not yet perform orbit fitting, candidate generation, or observation selection.
+This prototype is intended to support experiments in which physical dynamics and candidate-orbit uncertainty guide the choice of the next observation. Version 0.4.0 provides the simulation and observation-generation half of that pipeline (C1/C2) plus the Component 3 forward model: trial-orbit propagation and apparent RA/Dec prediction. C1/C2 integration and physical-consistency verification are complete. It does not yet perform orbit fitting, candidate generation, or observation selection.
 
 ## Problem statement
 
@@ -79,7 +79,7 @@ Component 5: evaluation and schedule comparison
 
 ## Current implementation status
 
-| Component | Status in 0.3.0 | Notes |
+| Component | Status in 0.4.0 | Notes |
 |---|---|---|
 | Component 1 — N-body simulator | Implemented | Configurable synthetic scenarios; writes trajectory, config and metadata |
 | Component 2 — Synthetic observations | Implemented | Fixed cadence, idealized observer, seeded Gaussian noise, truth separated into ground_truth.json |
@@ -87,7 +87,7 @@ Component 5: evaluation and schedule comparison
 | Physical consistency (Stage 2.7.1) | Complete | Gravitational parameter aligned with C1's REBOUND model (MU_REBOUND = 39.476926421373); C1 physics untouched |
 | Component 3 Phase 1 — Observation loader and state model | Implemented | `src/orbit_discovery/component3/models.py`, `loader.py`; truth separation enforced (`true_*` columns rejected) |
 | Component 3 Phase 2 — Trial-orbit propagation and observation prediction | Implemented | `dynamics.py` (build_trial_simulation, propagate_trial_state), `observation_model.py` (predict_apparent_coordinates); C2 vs C3 prediction match verified (Diagnostic 1) |
-| Component 3 Phase 3 — Orbit fitting | **Not implemented** | No least-squares fitting, residual weighting, candidate generation, or covariance |
+| Component 3 Phase 3 — Orbit fitting | **Partially implemented** | Phase 1–2 complete; Phase 3A design approved; Phase 3B residual calculation implemented, hardened and tested (57 tests). Phase 3C optimizer not started; no least-squares fit, candidate generation, or covariance yet. |
 | Component 4 — Active selection | **Not implemented** | No scheduler, candidate scoring or future observation window |
 | Component 5 — Evaluation | **Not implemented** | No equal-budget comparison harness or calibration study |
 
@@ -178,7 +178,7 @@ The project uses pytest. Run the full suite from the repository root:
 .\.venv\Scripts\python.exe -m pytest tests/ -q
 ```
 
-The verified result for 0.3.0: **223 passed, 1 deselected, 0 failures** (Python 3.13.9, `.venv`).
+The verified result for 0.4.0: **280 passed, 1 deselected, 0 failures** (Python 3.13.9, `.venv`).
 
 The following read-only validation scripts were also executed against the baseline and all exited with status 0:
 
@@ -252,7 +252,7 @@ The authoritative implementation order, contracts and approval gates are in [`do
 
 ## Version information
 
-- Project version: **0.3.0**, declared in `pyproject.toml`.
+- Project version: **0.4.0**, declared in `pyproject.toml`.
 - Baseline record: [`docs/development/BASELINE_0.2.0.md`](docs/development/BASELINE_0.2.0.md).
 - Changelog: [`CHANGELOG.md`](CHANGELOG.md).
 - Build roadmap: [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md).

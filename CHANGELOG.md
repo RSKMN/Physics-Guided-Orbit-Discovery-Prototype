@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet use semantic-release automation or a machine-readable package version.
 
+## [0.4.0] - 2026-11-13
+
+### Added
+
+- Component 3 Phase 3B — Residual calculation: `src/orbit_discovery/component3/residuals.py` implementing wrapped right-ascension residuals (branch-cut at RA = 0/360), declination residuals (no wrapping), tangent-plane RA weighting with cos(dec) applied exactly once using the observed declination as the fixed reference, degrees-to-arcseconds conversion, normalization by `sigma_ra_cosdec_arcsec` / `sigma_dec_arcsec`, fixed residual-vector structure over pole-retained observations, pole screening (`|cos(dec)| >= 1e-12`), and the chi-square objective `chi2 = r^T r`. NumPy-only; no optimizer, no estimator, no forward-model change, no new dependencies, no ground-truth access.
+- Focused tests `tests/test_component3_residuals.py`: 57 tests covering RA wraparound, declination difference, pole screening, residual weighting, arcsec conversion, cos(dec)-not-double-applied, chi-square, angular-input validation, declination bounds, invalid pole thresholds, all-observations-excluded rejection, empty/NaN/infinite chi-square rejection, hand-calculated chi-square cross-check, and an integration test combining RA wraparound with the observed-dec cosine correction.
+
+### Changed
+
+- `pyproject.toml`, `README.md` and `CHANGELOG.md`: project version updated from 0.3.0 to 0.4.0.
+- Component 3 phase status: Phase 1 (observation loader and state model) and Phase 2 (trial-orbit propagation and observation prediction) complete; Phase 3 design (Phase 3A) approved; Phase 3B (residual calculation) implemented, hardened, tested and approved; Phase 3C (optimizer implementation) not started; Phases 4–8 pending.
+
+### Documentation
+
+- `docs/component-3/PHASE_3_DESIGN.md`: Phase 3A design status updated to approved; Phase 3B residual implementation recorded.
+- `docs/BUILD_ROADMAP.md`: version history (Section 13) append-only row added for project version 0.4.0.
+
 ## [0.3.0] - 2026-11-13
 
 ### Added

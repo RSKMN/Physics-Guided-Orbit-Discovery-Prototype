@@ -3,7 +3,7 @@
 **Status:** Complete
 **Date:** 2026-11-13
 **Component:** Component 3 — Orbit Estimation and Candidate Orbit Generation
-**Gate:** Awaiting approval to proceed to Phase 3
+**Gate:** Complete — Phase 2 accepted; Phase 3A design approved and Phase 3B residual calculation implemented, hardened, tested and approved (see PHASE_3_DESIGN.md and tests/test_component3_residuals.py).
 
 ---
 
