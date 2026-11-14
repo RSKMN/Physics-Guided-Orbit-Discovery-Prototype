@@ -4,23 +4,26 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet use semantic-release automation or a machine-readable package version.
 
-## [0.4.1] - 2026-11-14
+## [0.5.0] - 2026-11-14
 
 ### Added
 
-- Component 3 Phase 3C — Levenberg–Marquardt optimizer (`src/orbit_discovery/component3/optimizer.py`): NumPy-only weighted nonlinear least-squares fit with parameter scaling (`s = [1, 1, 1, 2π, 2π, 2π]`), numerical forward-difference Jacobian in scaled coordinates, adaptive damping, overflow/non-finite handling, residual-dimension validation, parameter validation, Jacobian accounting, and exception propagation (TypeError/AttributeError propagate; numerical exceptions wrapped as recoverable `EvaluationError`). No new dependencies; SciPy not used. `tests/test_component3_optimizer.py`: 29 tests covering convergence, scaling, Jacobian accounting, damping escalation, invalid input rejection, termination diagnostics, and numerical robustness.
-- Component 3 Phase 3D — Best-fit orbit estimation integration (`src/orbit_discovery/component3/estimation.py`): `build_residual_function()` and `run_estimation()` orchestrating the C3 forward model (propagation → prediction → residuals) with the LM optimizer; dataset validation (nonempty, finite, nonnegative epochs, compatible array lengths) before propagation; physical-coordinate contract (res["x"] is physical, no scaling applied); final-prediction efficiency (propagate once, predict once); numerical-exception-only handlers; result model mapping (residuals dict with ndarrays only, fit_metrics dict with floats only, diagnostics in `OrbitCandidate.metadata`). `tests/test_component3_estimation.py`: 13 tests covering dataset validation before propagation, negative epoch rejection, invalid initial state, residual dimension consistency, failed trial propagation, non-converged result handling, valid synthetic dataset, orbit recovery from perturbed guess, scaled Jacobian analysis (rank 6/6), final-prediction failure handling (via propagation and via prediction), source dataset metadata passthrough, and absence of truth-related metadata keys.
-- Focused test result: 40 passed (optimizer 29 + estimation 13), 0 failed.
+- Component 3 Phase 4 — Reproducible multi-start candidate generation (`src/orbit_discovery/component3/candidates.py`): `run_multi_start_estimation()` with seeded Gaussian perturbations around the Phase 3D best-fit state; deterministic RNG; candidate validation (finite state, finite metrics, convergence boolean, Jacobian rank exactly 6, positive DOF, reduced chi-square < threshold); deterministic ranking by reduced chi-square / chi-square / start index; duplicate detection and greedy deduplication; retention limit; complete audit record (one per start); JSON-compatible serialization with `allow_nan=False`. Ground-truth isolation enforced. `tests/test_component3_candidates.py`: ~80 tests.
+- Component 3 Phase 5B — Local linearized uncertainty estimation via SVD (`src/orbit_discovery/component3/uncertainty.py`): physical Cartesian covariance `P_phys = diag(s) @ V diag(1/sigma^2) V.T @ diag(s)` with parameter scaling `s = [1, 1, 1, 2π, 2π, 2π]`; condition number, numerical rank, degrees of freedom (`n_valid_scalar_residuals - 6`); invalid-result reasons (non-converged, invalid Jacobian, insufficient DOF, rank-deficient, singular-value failure, non-finite covariance). `tests/test_component3_uncertainty.py`: 13 tests.
+- Component 3 Phase 5C — Candidate ensemble diagnostics (`src/orbit_discovery/component3/candidate_diagnostics.py`): per-coordinate spread, pairwise distances, complete-linkage clustering, cluster representatives and internal distances, assessment (insufficient_candidates / single_compact_group / multiple_separated_groups / broadly_dispersed / no_candidates). `tests/test_component3_candidate_diagnostics.py`: ~40 tests including repair of the broken diagnostics test collection defect.
+- Component 3 Phase 6 — CLI integration (`src/orbit_discovery/cli/cmd_estimate.py`): `orbit estimate` subcommand integrating the full Component 3 pipeline — load observations, best-fit estimation, local uncertainty diagnostics, multi-start candidate generation, candidate ensemble diagnostics, structured JSON output (`allow_nan=False`), exit codes 0 = success / 1 = pipeline failure / 2 = serialization error. `tests/test_cli_phase6_integration.py`.
+- Component 3 Phase 7 — Scientific validation and regression (`tests/test_component3_phase7_regression.py`): end-to-end integration regression tests covering exact-start pipeline consistency, perturbed-start recovery to machine precision (~1e-13 AU), noisy observations, and sparse observations. Docs: `docs/component-3/PHASE_7_VALIDATION.md`.
+- Component 3 Phase 8 audit complete — acceptance decision APPROVED; all 457 tests pass.
 
 ### Changed
 
-- `pyproject.toml`, `README.md` and `CHANGELOG.md`: project version updated from 0.4.0 to 0.4.1.
-- Component 3 phase status: Phase 3C optimizer moved from "not started" to implemented/tested/released; Phase 3D estimator added as implemented/tested/released; autonomous initial-guess generation, candidate generation, covariance reporting, and Components 4–5 remain pending.
+- `pyproject.toml`, `README.md` and `CHANGELOG.md`: project version updated from 0.4.1 to 0.5.0.
+- Component 3 phase status: Phases 4–5 (candidate generation, uncertainty, ensemble diagnostics) moved from pending to implemented/tested/released; Phase 6 CLI integration added; Phase 7 validation complete; Components 4–5 remain pending.
 
 ### Documentation
 
-- `docs/component-3/PHASE_3_DESIGN.md`: Phase 3C and Phase 3D status updated to implemented/tested/released; implementation paths, test files, test counts, Jacobian rank/condition number recorded.
-- `docs/BUILD_ROADMAP.md`: version history (Section 13) append-only row added for project version 0.4.1; Component 3 Phase 3C/3D status rows updated.
+- `docs/component-3/PHASE_4_DESIGN.md`: Phase 4 multi-start candidate generation design record.
+- `docs/component-3/PHASE_7_VALIDATION.md`: Phase 7 scientific validation results with measured validation metrics.
 
 ## [0.4.0] - 2026-11-13
 

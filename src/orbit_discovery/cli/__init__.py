@@ -58,6 +58,7 @@ def main(args: list[str] | None = None) -> int:
         "observe": "cmd_observe",
         "compare": "cmd_compare",
         "validate": "cmd_validate",
+        "estimate": "cmd_estimate",
     }
 
     if command not in command_map:
@@ -110,5 +111,6 @@ def _cmd_description(cmd: str) -> str:
         "observe": "Component 2 observation generation",
         "compare": "Trajectory/observation comparison",
         "validate": "Read-only validation",
+        "estimate": "Component 3 orbit estimation and candidate discovery",
     }
     return descriptions.get(cmd, "")

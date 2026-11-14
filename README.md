@@ -2,15 +2,15 @@
 
 A research prototype for physics-guided asteroid orbit discovery. The project combines N-body simulation, synthetic astrometry and, in later stages, orbit estimation and active observation selection.
 
-**Current version:** 0.4.1
-**Status:** Components 1 and 2 implemented and integrated; physical consistency verified (Stage 2.7.1). Component 3 Phase 1 (observation loader and state model) and Phase 2 (trial-orbit propagation and observation prediction) implemented and verified (Diagnostics 1–4 accepted). Component 3 Phase 3 (orbit fitting): Phase 3A design approved; Phase 3B residual calculation implemented, hardened, tested and approved; Phase 3C Levenberg–Marquardt optimizer implemented, tested and released; Phase 3D best-fit orbit estimation integration implemented, tested and released. Components 4–5 are **not implemented**.
+**Current version:** 0.5.0
+**Status:** Components 1 and 2 implemented and integrated; physical consistency verified (Stage 2.7.1). Component 3 complete: Phases 1–2 (observation loader, state model, trial-orbit propagation and prediction) implemented and verified; Phase 3 (orbit fitting) complete — Phase 3B residual calculation, Phase 3C Levenberg–Marquardt optimizer, Phase 3D best-fit orbit estimation; Phase 4 reproducible multi-start candidate generation; Phase 5 local uncertainty diagnostics and candidate ensemble spread/clustering diagnostics. Components 4–5 are **not implemented**.
 **Baseline:** see [`docs/development/BASELINE_0.2.0.md`](docs/development/BASELINE_0.2.0.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Research motivation
 
 Discovering and characterising asteroids from sparse astrometry requires more than fitting a curve to sky positions. The observable measurements depend on the target's dynamics, the observer's motion, the geometry of the Solar System and the times at which observations are taken. A reproducible synthetic testbed makes it possible to study those dependencies before applying a method to real survey data.
 
-This prototype is intended to support experiments in which physical dynamics and candidate-orbit uncertainty guide the choice of the next observation. Version 0.4.1 provides the simulation and observation-generation half of that pipeline (C1/C2) plus Component 3 Phase 3: Phase 3B residual calculation, Phase 3C Levenberg–Marquardt optimizer, and Phase 3D best-fit orbit estimation integration (user-supplied initial guess, NumPy-only LM fit, NumPy-only scaled-coordinate Jacobian analysis). C1/C2 integration and physical-consistency verification are complete. Component 3 Phase 3 still fits a user-supplied initial guess (autonomous initial-guess generation is deferred); it does not yet perform candidate generation, covariance reporting, or observation selection.
+This prototype is intended to support experiments in which physical dynamics and candidate-orbit uncertainty guide the choice of the next observation. Version 0.5.0 completes the orbit estimation and candidate-orbit half of that pipeline: Component 1 simulation, Component 2 observation generation, and Component 3 Phases 1–5 (observation loader and state model, trial-orbit propagation and prediction, orbit fitting with Levenberg–Marquardt optimization, reproducible multi-start candidate generation, local uncertainty diagnostics, and candidate ensemble spread/clustering diagnostics). C1/C2 integration and physical-consistency verification are complete. Components 4–5 are **not implemented**.
 
 ## Problem statement
 
@@ -38,12 +38,19 @@ The current prototype addresses the data-generation preconditions for that probl
 - **Component 2:** fixed-cadence synthetic observation generation using an idealized circular observer, ecliptic-to-equatorial rotation, RA/Dec calculation and seeded Gaussian angular noise, with ground truth stored separately.
 - **Component 3 (Phase 1):** strict observation loader and state model — observation dataset validation, truth separation (`true_*` columns rejected), 6D heliocentric `OrbitState`, `ObservationDataset`, `OrbitCandidate`, `BestFitResult`, `EstimationResult`.
 - **Component 3 (Phase 2):** trial-orbit propagation and apparent RA/Dec prediction — REBOUND/IAS15 forward propagation matching C1's planetary model, observer geometry reconstruction from metadata, ecliptic-to-equatorial rotation, RA normalized to [0, 360), Dec clipped to [-90, 90].
+- **Component 3 (Phase 3B):** wrapped right-ascension residuals (branch-cut at RA = 0/360), declination residuals (no wrapping), tangent-plane RA weighting with cos(dec) applied exactly once using the observed declination as the fixed reference, degrees-to-arcseconds conversion, normalization by `sigma_ra_cosdec_arcsec` / `sigma_dec_arcsec`, fixed residual-vector structure over pole-retained observations, pole screening (`|cos(dec)| >= 1e-12`), and the chi-square objective `chi2 = r^T r`.
+- **Component 3 (Phase 3C):** NumPy-only Levenberg–Marquardt weighted nonlinear least-squares optimizer with parameter scaling (`s = [1, 1, 1, 2π, 2π, 2π]`), forward-difference Jacobian in scaled coordinates, adaptive damping, overflow/non-finite handling, residual-dimension validation, parameter validation, Jacobian accounting, and exception propagation.
+- **Component 3 (Phase 3D):** best-fit orbit estimation integration orchestrating propagation → prediction → residuals with the LM optimizer; dataset validation before propagation; physical-coordinate contract; final-prediction efficiency; result model mapping with residuals dict (ndarrays only) and fit_metrics dict (floats only); Jacobian rank and valid scalar residual count diagnostics.
+- **Component 3 (Phase 4):** reproducible multi-start candidate generation around the Phase 3D best-fit state — seeded Gaussian perturbations, deterministic RNG, candidate validation (finite state, finite metrics, convergence boolean, Jacobian rank exactly 6, positive DOF, reduced chi-square < threshold), deterministic ranking by reduced chi-square / chi-square / start index, duplicate detection and greedy deduplication, retention limit, complete audit record (one per start), JSON-compatible serialization with `allow_nan=False`. Ground-truth isolation enforced.
+- **Component 3 (Phase 5B):** local linearized uncertainty estimation via SVD of the scaled Jacobian — physical Cartesian covariance `P_phys = diag(s) @ V diag(1/sigma^2) V.T @ diag(s)`, condition number, numerical rank, degrees of freedom (`n_valid_scalar_residuals - 6`), invalid-result reasons (non-converged, invalid Jacobian, insufficient DOF, rank-deficient, singular-value failure, non-finite covariance).
+- **Component 3 (Phase 5C):** candidate ensemble diagnostics — per-coordinate spread, pairwise distances, complete-linkage clustering, cluster representatives and internal distances, assessment (insufficient_candidates / single_compact_group / multiple_separated_groups / broadly_dispersed / no_candidates).
+- **CLI:** `orbit estimate` subcommand integrating the full Component 3 pipeline — load observations, best-fit estimation, local uncertainty diagnostics, multi-start candidate generation, candidate ensemble diagnostics, structured JSON output (`allow_nan=False`), exit codes 0 = success / 1 = pipeline failure / 2 = serialization error.
 - **Scenarios:** standard (`e = 0.2`, `i = 0°`), eccentric (`e = 0.5`) and inclined (`e = 0.3`, `i = 10°`).
 - **Data products:** trajectories, run metadata, observation tables, observation metadata and separate ground-truth files.
-- **Validation:** read-only checks for trajectory schema, orbital geometry, Kepler period, integrator tolerance, frame conversion, noise reproducibility, observation-dataset integrity and truth separation; C3 focused test suites (Phase 1: 18 tests, Phase 2: 23 tests).
+- **Validation:** read-only checks for trajectory schema, orbital geometry, Kepler period, integrator tolerance, frame conversion, noise reproducibility, observation-dataset integrity and truth separation; C3 focused test suites (Phase 1: 18 tests, Phase 2: 23 tests, Phase 3B residuals: 57 tests, Phase 3C optimizer: 29 tests, Phase 3D estimation: 13 tests, Phase 4 candidates: ~80 tests, Phase 5B uncertainty: 13 tests, Phase 5C diagnostics: ~40 tests, Phase 6 CLI integration, Phase 7 regression).
 - **Analysis:** comparative plots and a summary table for the three observation datasets.
 - **Legacy validation:** separate two-body, N-body and Eros/Horizons workflows are retained as historical evidence.
-- **Integration:** C1/C2 end-to-end pipeline verified (Stage 2.7); gravitational-parameter consistency between C1 and downstream analytic modules verified and corrected (Stage 2.7.1); C2 vs C3 forward-model prediction match verified (Diagnostic 1); C1 vs C3 planetary-state match verified (Diagnostic 2); C3 initial-state preservation verified at tolerance 1e-12 AU / 1e-12 AU/yr (Diagnostic 3); C3 10-year long-span stability and conservation verified (Diagnostic 4).
+- **Integration:** C1/C2 end-to-end pipeline verified (Stage 2.7); gravitational-parameter consistency between C1 and downstream analytic modules verified and corrected (Stage 2.7.1); C2 vs C3 forward-model prediction match verified (Diagnostic 1); C1 vs C3 planetary-state match verified (Diagnostic 2); C3 initial-state preservation verified at tolerance 1e-12 AU / 1e-12 AU/yr (Diagnostic 3); C3 10-year long-span stability and conservation verified (Diagnostic 4); Phase 7 end-to-end perturbed-start orbit recovery verified to machine precision (~1e-13 AU).
 
 ## Component architecture
 
@@ -71,8 +78,13 @@ Component 3 (Phase 1-2): observation loader and forward model
   observation CSV -> loader (validate, truth separation) -> OrbitState
   OrbitState -> build_trial_simulation -> propagate_trial_state -> predict_apparent_coordinates -> RA/Dec
 
+Component 3 (Phase 3-5): orbit estimation
+  OrbitState -> LM optimizer -> BestFitResult (estimation)
+  BestFitResult -> SVD covariance -> local uncertainty (Phase 5B)
+  BestFitResult -> multi-start candidates -> diagnostics (Phase 4 + Phase 5C)
+  Full pipeline available via `orbit estimate` CLI subcommand
+
 Planned, not implemented:
-Component 3 Phase 3: orbit fitting and candidate-orbit generation
 Component 4: active observation selection
 Component 5: evaluation and schedule comparison
 ```
@@ -87,7 +99,7 @@ Component 5: evaluation and schedule comparison
 | Physical consistency (Stage 2.7.1) | Complete | Gravitational parameter aligned with C1's REBOUND model (MU_REBOUND = 39.476926421373); C1 physics untouched |
 | Component 3 Phase 1 — Observation loader and state model | Implemented | `src/orbit_discovery/component3/models.py`, `loader.py`; truth separation enforced (`true_*` columns rejected) |
 | Component 3 Phase 2 — Trial-orbit propagation and observation prediction | Implemented | `dynamics.py` (build_trial_simulation, propagate_trial_state), `observation_model.py` (predict_apparent_coordinates); C2 vs C3 prediction match verified (Diagnostic 1) |
-| Component 3 Phase 3 — Orbit fitting | **Partially implemented** | Phase 1–2 complete; Phase 3A design approved; Phase 3B residual calculation implemented, hardened and tested (57 tests). Phase 3C Levenberg–Marquardt optimizer implemented, hardened and tested (29 tests). Phase 3D best-fit orbit estimation integration implemented and tested (13 tests). No autonomous initial-guess generation, candidate generation, or covariance reporting yet. |
+| Component 3 Phase 3 — Orbit fitting | Implemented | All phases (3A-3D) complete: LM optimizer, estimation integration, multi-start candidate generation, local uncertainty diagnostics, ensemble diagnostics, and CLI integration. |
 | Component 4 — Active selection | **Not implemented** | No scheduler, candidate scoring or future observation window |
 | Component 5 — Evaluation | **Not implemented** | No equal-budget comparison harness or calibration study |
 
@@ -109,8 +121,8 @@ physics-guided-orbit-discovery-prototype/
 │       └── BASELINE_0.2.0.md
 ├── plots/                   # legacy generated figures (Git-ignored)
 ├── results/                 # comparison summary and generated figures
-├── src/                     # 12 Python source files + component3 package (models, loader, dynamics, observation_model)
-├── tests/                   # 19 script-style validation files + C3 phase1/phase2 focused test suites
+├── src/                     # Python source packages (orbit_discovery.cli, orbit_discovery.component3)
+├── tests/                   # Comprehensive test suite covering C1-C3 and regression scenarios
 ├── .gitignore
 ├── CHANGELOG.md
 ├── README.md
@@ -170,17 +182,33 @@ The `-m` form is required. Direct invocation with `python src\observation_genera
 
 The CLI syntax was verified with `--help`. The full command was **not executed during baseline preparation** because it writes into the existing observation dataset directory and would regenerate tracked artefacts.
 
+## How to run Component 3 (CLI)
+
+Run the full Component 3 pipeline via the `orbit` console script installed with the package:
+
+```powershell
+orbit estimate --observations data/observations/<dataset>/observations.csv --metadata data/observations/<dataset>/metadata.json --output <output>.json
+```
+
+The `orbit estimate` subcommand performs the complete Component 3 flow:
+1. Loads and validates the observation dataset (truth separation enforced).
+2. Runs best-fit orbit estimation with the Levenberg–Marquardt optimizer (Phase 3D).
+3. Runs local linearized uncertainty estimation via SVD of the scaled Jacobian (Phase 5B).
+4. Runs reproducible multi-start candidate generation around the best-fit state (Phase 4).
+5. Runs candidate ensemble diagnostics — spread, distances, clustering, assessment (Phase 5C).
+6. Writes structured JSON output (`allow_nan=False`) and exits with code 0 (success), 1 (pipeline failure), or 2 (serialization error).
+
 ## How to run validation
 
-The project uses pytest. Run the full suite from the repository root:
+The project uses `pytest`. Run the full suite from the repository root:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests/ -q
 ```
 
-The verified result for 0.4.0: **280 passed, 1 deselected, 0 failures** (Python 3.13.9, `.venv`).
+The verified result for 0.5.0: **457 passed, 1 deselected, 0 failures** (Python 3.13.9, `.venv`).
 
-The following read-only validation scripts were also executed against the baseline and all exited with status 0:
+The following read-only validation scripts were also executed and all exited with status 0:
 
 ```powershell
 .\.venv\Scripts\python.exe tests\test_trajectory_loader.py
@@ -240,19 +268,18 @@ Ground truth is stored separately from measurements: each observation dataset ha
 - **Observability:** no solar-elongation or visibility filtering. About 25.6% of current epochs have solar elongation below 30°.
 - **Ground truth:** the same numerical model generates the observations and the truth; “accuracy” is model-relative, not real-world astrometric accuracy.
 - **Gravitational parameter:** C1 propagates with REBOUND's actual μ = 39.4769 AU³/yr² (units yr/AU/Msun). Downstream analytic modules (element conversion, observer velocity) now use `MU_REBOUND = 39.476926421373` for consistency with C1; this was corrected in Stage 2.7.1 (previously these modules declared μ = 1.0). C1 simulation physics is unchanged.
-- **Current scope:** no orbit estimation, candidate orbits, uncertainty quantification, active selection or schedule evaluation.
+- **Current scope:** orbit estimation, candidate orbits and uncertainty quantification are implemented in Component 3 Phases 1–5. Active selection and schedule evaluation remain future work (Components 4–5).
 
 ## Planned future components
 
-1. **Component 3 — Orbit estimation:** candidate-orbit representation, propagation, fitting, residuals, covariance and multi-modal candidates. Not started — blocked until Gate F criteria in [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md) are met.
-2. **Component 4 — Active observation selection:** candidate scoring, observability constraints, future observation requests and sequential selection. Not started — blocked by C3.
-3. **Component 5 — Evaluation:** equal-budget comparison of active, fixed and random schedules, with calibration over multiple seeds. Not started — blocked by C3/C4.
+1. **Component 4 — Active observation selection:** candidate scoring, observability constraints, future observation requests and sequential selection. Not started — blocked by C3.
+2. **Component 5 — Evaluation:** equal-budget comparison of active, fixed and random schedules, with calibration over multiple seeds. Not started — blocked by C3/C4.
 
 The authoritative implementation order, contracts and approval gates are in [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md). [`docs/development/REFACTORING_PLAN.md`](docs/development/REFACTORING_PLAN.md) is retained as historical technical evidence. Those components are proposals; they are not present in the current source tree.
 
 ## Version information
 
-- Project version: **0.4.0**, declared in `pyproject.toml`.
+- Project version: **0.5.0**, declared in `pyproject.toml`.
 - Baseline record: [`docs/development/BASELINE_0.2.0.md`](docs/development/BASELINE_0.2.0.md).
 - Changelog: [`CHANGELOG.md`](CHANGELOG.md).
 - Build roadmap: [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md).

@@ -138,6 +138,29 @@ def run_estimation(
     except (ValueError, RuntimeError, FloatingPointError, ArithmeticError, OverflowError) as e:
         raise ValueError(f"Final prediction/residual failure: {e}") from e
 
+    # Calculate Jacobian rank from optimizer's final scaled Jacobian
+    jacobian_rank = None
+    jac_scaled = res.get("jac_scaled")
+    n_valid_scalar_residuals = int(final_residuals_dict["n_valid_scalar_residuals"])
+
+    if jac_scaled is not None:
+        try:
+            # 1. Finite 2D array
+            jac_scaled = np.asarray(jac_scaled, dtype=float)
+            if jac_scaled.ndim == 2 and jac_scaled.shape[1] == 6 and jac_scaled.shape[0] == n_valid_scalar_residuals:
+                if np.all(np.isfinite(jac_scaled)):
+                    # 4. SVD singular values
+                    s = np.linalg.svd(jac_scaled, compute_uv=False)
+                    if s.size > 0 and np.all(np.isfinite(s)):
+                        # 6. Relative tolerance 1e-8 * s_max
+                        s_max = s[0]
+                        tol = 1e-8 * s_max
+                        jacobian_rank = int(np.sum(s > tol))
+                    elif s.size == 0:
+                        jacobian_rank = 0
+        except (ValueError, TypeError, np.linalg.LinAlgError):
+            jacobian_rank = None
+
     best_fit = BestFitResult(
         state=best_state,
         epoch_years=0.0,
@@ -152,6 +175,8 @@ def run_estimation(
         fit_metrics={
             "chi2": float(res["chi2"]),
             "optimality": float(res["optimality"]),
+            "jacobian_rank": jacobian_rank,
+            "n_valid_scalar_residuals": n_valid_scalar_residuals,
         }
     )
 
@@ -164,7 +189,9 @@ def run_estimation(
             "n_iter": int(res["n_iter"]),
             "nfev": int(res["nfev"]),
             "njev": int(res["njev"]),
-            "optimizer": "least_squares_lm"
+            "optimizer": "least_squares_lm",
+            "jacobian_rank": jacobian_rank,
+            "n_valid_scalar_residuals": n_valid_scalar_residuals,
         }
     )
 
