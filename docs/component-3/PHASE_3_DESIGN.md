@@ -2,10 +2,10 @@
 
 **Component:** Component 3 — Orbit Estimation and Candidate Orbit Generation
 **Phase:** 3 — Orbit estimation (design and investigation only)
-**Status:** Phase 3A design approved; Phase 3B residual calculation implemented, hardened, tested and approved.
+**Status:** Phase 3A design approved; Phase 3B residual calculation implemented, hardened, tested and approved; Phase 3C Levenberg–Marquardt optimizer implemented, hardened, tested and released; Phase 3D best-fit orbit estimation integration implemented, tested and released.
 **Baseline:** v0.3.0 (commit `d86bdba`), Phase 1 and Phase 2 complete and accepted
-**Date:** 2026-11-13
-**Released in:** v0.4.0
+**Date:** 2026-11-13 (design); 2026-11-14 (implementation release)
+**Released in:** v0.4.1
 
 ---
 
@@ -405,12 +405,12 @@ The initial implementation stays scoped to a **weighted least-squares estimator 
 | Subphase | Scope | Files to create/modify | Math functionality | Tests | Expected output | Dependencies | Risks | Completion criteria |
 |---|---|---|---|---|---|---|---|---|
 | **3A** | Design (this document) | `docs/component-3/PHASE_3_DESIGN.md` | Formulation, residuals, optimizer, outputs, validation plan | N/A | Approved design | None | Design gaps | Review sign-off |
-| **3B** | Residual & weighting module | `src/orbit_discovery/component3/residuals.py` (new) | Wrapped RA residual, Dec residual, cos(dec) tangent-plane weighting, arcsec conversion, normalized residual vector, chi2 | Unit tests for wraparound, pole guard, weighting, chi2 | `residuals(x)` and `chi2(x)` functions | NumPy | Double-counting cos(dec) | Tests pass; no double cos(dec) |
-| **3C** | Optimizer (LM, NumPy only) | `src/orbit_discovery/component3/optimizer.py` (new) | Levenberg–Marquardt, numerical forward-difference Jacobian, parameter scaling, adaptive damping, convergence criteria, failed-propagation handling | Unit tests on synthetic 2D/6D convex problems; convergence and failure behavior | `least_squares_lm(x0, fun, jac, ...)` → result dict | NumPy | Ill-conditioned JᵀJ | Converges on well-posed problems; reports failure gracefully |
-| **3D** | Estimator orchestrator | `src/orbit_discovery/component3/estimator.py` (new) | Combine forward model (`predict_from_orbit_state`) + residuals + LM; assemble outputs into existing models | Integration test on synthetic observations | `estimate_orbit(initial_state, dataset) -> EstimationResult` | NumPy, C1/C2/C3 | Forward-model cost per eval | End-to-end fit runs and returns populated result |
-| **3E** | Output assembly into models | (part of 3D; no new files) | Populate `BestFitResult`, `fit_metrics`, `EstimationResult` (chi2, dof, chi2_reduced, RMS, n_iter, nfev, converged, covariance when justified) | Verify metrics against hand calculation | Fully populated result object | None | Covariance near-singularity | Metrics correct; covariance `None` when singular |
-| **3F** | Validation tests (evaluation path) | `tests/test_component3_phase3.py` (new, test-only) | Synthetic recovery, noise sensitivity, cadence/arc sensitivity, perturbed guess, failure cases, RA wraparound, truth isolation | All Section 7 cases | Test suite passes | NumPy; ground_truth.json **test-only** | Test accidentally leaks truth into production | Production code truth-free; tests pass |
-| **3G** | Validation report | `docs/component-3/PHASE_3_VALIDATION.md` (new) | Summarize validation results | N/A | Report | None | N/A | Report documents recovery performance |
+| **3B** | Residual & weighting module | `src/orbit_discovery/component3/residuals.py` (new) | Wrapped RA residual, Dec residual, cos(dec) tangent-plane weighting, arcsec conversion, normalized residual vector, chi2 | `tests/test_component3_residuals.py` (57 tests) | `residuals()` and `chi2(x)` functions | NumPy | Double-counting cos(dec) | Tests pass; no double cos(dec) |
+| **3C** | Optimizer (LM, NumPy only) | `src/orbit_discovery/component3/optimizer.py` (new) | Levenberg–Marquardt, numerical forward-difference scaled Jacobian, parameter scaling (`s=[1,1,1,2π,2π,2π]`), adaptive damping, convergence criteria, failed-propagation handling | `tests/test_component3_optimizer.py` (29 tests, all pass) | `least_squares_lm(x0, s, fun, ...)` → result dict | NumPy | Ill-conditioned JᵀJ | Converges on well-posed problems; reports failure gracefully |
+| **3D** | Estimator orchestrator | `src/orbit_discovery/component3/estimation.py` (new) | `build_residual_function()` + `run_estimation()` orchestrating forward model + LM optimizer; dataset validation before propagation; physical-coordinate contract (res["x"] physical, no scaling); final-prediction efficiency; numerical-exception-only handlers; result-model mapping | `tests/test_component3_estimation.py` (13 tests, all pass); scaled Jacobian analysis rank 6/6, cond ≈ 67 | `run_estimation(initial_state, dataset) -> EstimationResult` | NumPy, C1/C2/C3 | Forward-model cost per eval | End-to-end fit runs and returns populated result |
+| **3E** | Output assembly into models | (part of 3D; no new files) | Populate `BestFitResult`, `fit_metrics`, `EstimationResult` (chi2, optimality floats only; residuals ndarrays only; diagnostics in `OrbitCandidate.metadata`) | Verify metrics against hand calculation | Fully populated result object | None | Covariance near-singularity | Metrics correct; covariance `None` when singular |
+| **3F** | Validation tests (evaluation path) | `tests/test_component3_estimation.py` (new, test-only) | Synthetic recovery from perturbed guess, dataset validation, final-prediction failure handling, ground-truth isolation, scaled Jacobian rank/condition | All 13 tests pass | Test suite passes | NumPy; ground_truth.json **test-only** | Test accidentally leaks truth into production | Production code truth-free; tests pass |
+| **3G** | Validation report | `docs/component-3/PHASE_3_VALIDATION.md` (proposed) | Summarize validation results | N/A | Report (not yet written) | None | N/A | Report documents recovery performance |
 
 No existing production source files, tests, or configuration files are modified in any subphase.
 

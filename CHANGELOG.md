@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet use semantic-release automation or a machine-readable package version.
 
+## [0.4.1] - 2026-11-14
+
+### Added
+
+- Component 3 Phase 3C — Levenberg–Marquardt optimizer (`src/orbit_discovery/component3/optimizer.py`): NumPy-only weighted nonlinear least-squares fit with parameter scaling (`s = [1, 1, 1, 2π, 2π, 2π]`), numerical forward-difference Jacobian in scaled coordinates, adaptive damping, overflow/non-finite handling, residual-dimension validation, parameter validation, Jacobian accounting, and exception propagation (TypeError/AttributeError propagate; numerical exceptions wrapped as recoverable `EvaluationError`). No new dependencies; SciPy not used. `tests/test_component3_optimizer.py`: 29 tests covering convergence, scaling, Jacobian accounting, damping escalation, invalid input rejection, termination diagnostics, and numerical robustness.
+- Component 3 Phase 3D — Best-fit orbit estimation integration (`src/orbit_discovery/component3/estimation.py`): `build_residual_function()` and `run_estimation()` orchestrating the C3 forward model (propagation → prediction → residuals) with the LM optimizer; dataset validation (nonempty, finite, nonnegative epochs, compatible array lengths) before propagation; physical-coordinate contract (res["x"] is physical, no scaling applied); final-prediction efficiency (propagate once, predict once); numerical-exception-only handlers; result model mapping (residuals dict with ndarrays only, fit_metrics dict with floats only, diagnostics in `OrbitCandidate.metadata`). `tests/test_component3_estimation.py`: 13 tests covering dataset validation before propagation, negative epoch rejection, invalid initial state, residual dimension consistency, failed trial propagation, non-converged result handling, valid synthetic dataset, orbit recovery from perturbed guess, scaled Jacobian analysis (rank 6/6), final-prediction failure handling (via propagation and via prediction), source dataset metadata passthrough, and absence of truth-related metadata keys.
+- Focused test result: 40 passed (optimizer 29 + estimation 13), 0 failed.
+
+### Changed
+
+- `pyproject.toml`, `README.md` and `CHANGELOG.md`: project version updated from 0.4.0 to 0.4.1.
+- Component 3 phase status: Phase 3C optimizer moved from "not started" to implemented/tested/released; Phase 3D estimator added as implemented/tested/released; autonomous initial-guess generation, candidate generation, covariance reporting, and Components 4–5 remain pending.
+
+### Documentation
+
+- `docs/component-3/PHASE_3_DESIGN.md`: Phase 3C and Phase 3D status updated to implemented/tested/released; implementation paths, test files, test counts, Jacobian rank/condition number recorded.
+- `docs/BUILD_ROADMAP.md`: version history (Section 13) append-only row added for project version 0.4.1; Component 3 Phase 3C/3D status rows updated.
+
 ## [0.4.0] - 2026-11-13
 
 ### Added

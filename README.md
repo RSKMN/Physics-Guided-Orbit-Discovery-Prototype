@@ -2,15 +2,15 @@
 
 A research prototype for physics-guided asteroid orbit discovery. The project combines N-body simulation, synthetic astrometry and, in later stages, orbit estimation and active observation selection.
 
-**Current version:** 0.4.0
-**Status:** Components 1 and 2 implemented and integrated; physical consistency verified (Stage 2.7.1). Component 3 Phase 1 (observation loader and state model) and Phase 2 (trial-orbit propagation and observation prediction) implemented and verified (Diagnostics 1–4 accepted). Component 3 Phase 3 (orbit fitting): Phase 3A design approved; Phase 3B residual calculation implemented, hardened, tested and approved; Phase 3C optimizer not started. Components 4–5 are **not implemented**.
+**Current version:** 0.4.1
+**Status:** Components 1 and 2 implemented and integrated; physical consistency verified (Stage 2.7.1). Component 3 Phase 1 (observation loader and state model) and Phase 2 (trial-orbit propagation and observation prediction) implemented and verified (Diagnostics 1–4 accepted). Component 3 Phase 3 (orbit fitting): Phase 3A design approved; Phase 3B residual calculation implemented, hardened, tested and approved; Phase 3C Levenberg–Marquardt optimizer implemented, tested and released; Phase 3D best-fit orbit estimation integration implemented, tested and released. Components 4–5 are **not implemented**.
 **Baseline:** see [`docs/development/BASELINE_0.2.0.md`](docs/development/BASELINE_0.2.0.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Research motivation
 
 Discovering and characterising asteroids from sparse astrometry requires more than fitting a curve to sky positions. The observable measurements depend on the target's dynamics, the observer's motion, the geometry of the Solar System and the times at which observations are taken. A reproducible synthetic testbed makes it possible to study those dependencies before applying a method to real survey data.
 
-This prototype is intended to support experiments in which physical dynamics and candidate-orbit uncertainty guide the choice of the next observation. Version 0.4.0 provides the simulation and observation-generation half of that pipeline (C1/C2) plus the Component 3 forward model: trial-orbit propagation and apparent RA/Dec prediction. C1/C2 integration and physical-consistency verification are complete. It does not yet perform orbit fitting, candidate generation, or observation selection.
+This prototype is intended to support experiments in which physical dynamics and candidate-orbit uncertainty guide the choice of the next observation. Version 0.4.1 provides the simulation and observation-generation half of that pipeline (C1/C2) plus Component 3 Phase 3: Phase 3B residual calculation, Phase 3C Levenberg–Marquardt optimizer, and Phase 3D best-fit orbit estimation integration (user-supplied initial guess, NumPy-only LM fit, NumPy-only scaled-coordinate Jacobian analysis). C1/C2 integration and physical-consistency verification are complete. Component 3 Phase 3 still fits a user-supplied initial guess (autonomous initial-guess generation is deferred); it does not yet perform candidate generation, covariance reporting, or observation selection.
 
 ## Problem statement
 
@@ -87,7 +87,7 @@ Component 5: evaluation and schedule comparison
 | Physical consistency (Stage 2.7.1) | Complete | Gravitational parameter aligned with C1's REBOUND model (MU_REBOUND = 39.476926421373); C1 physics untouched |
 | Component 3 Phase 1 — Observation loader and state model | Implemented | `src/orbit_discovery/component3/models.py`, `loader.py`; truth separation enforced (`true_*` columns rejected) |
 | Component 3 Phase 2 — Trial-orbit propagation and observation prediction | Implemented | `dynamics.py` (build_trial_simulation, propagate_trial_state), `observation_model.py` (predict_apparent_coordinates); C2 vs C3 prediction match verified (Diagnostic 1) |
-| Component 3 Phase 3 — Orbit fitting | **Partially implemented** | Phase 1–2 complete; Phase 3A design approved; Phase 3B residual calculation implemented, hardened and tested (57 tests). Phase 3C optimizer not started; no least-squares fit, candidate generation, or covariance yet. |
+| Component 3 Phase 3 — Orbit fitting | **Partially implemented** | Phase 1–2 complete; Phase 3A design approved; Phase 3B residual calculation implemented, hardened and tested (57 tests). Phase 3C Levenberg–Marquardt optimizer implemented, hardened and tested (29 tests). Phase 3D best-fit orbit estimation integration implemented and tested (13 tests). No autonomous initial-guess generation, candidate generation, or covariance reporting yet. |
 | Component 4 — Active selection | **Not implemented** | No scheduler, candidate scoring or future observation window |
 | Component 5 — Evaluation | **Not implemented** | No equal-budget comparison harness or calibration study |
 

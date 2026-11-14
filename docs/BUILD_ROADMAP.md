@@ -4,8 +4,8 @@
 |---|---|
 | Document ID | `BUILD_ROADMAP` |
 | Roadmap version | **1.0** |
-| Project version at this revision | **0.4.0** (`pyproject.toml`) |
-| Date | **2026-11-13** |
+| Project version at this revision | **0.4.1** (`pyproject.toml`) |
+| Date | **2026-11-14** |
 | Status | **Living document — single source of truth** |
 | Owner | Project maintainer |
 | Supersedes | Scheduling and status sections of `docs/development/REFACTORING_PLAN.md`; that document remains a historical technical assessment. |
@@ -413,15 +413,15 @@ JPL Horizons / SPICE (ephemerides) ----+--> ingestion adapters
 |---|---|---|---|---|
 | C3-01 | Observation loading and preprocessing | **Not Started** | No estimator modules | Full implementation; Section 5.3.A |
 | C3-02 | Gauss angles-only initial orbit determination | **Not Started** | No code; no `scipy` dependency | Full implementation; Section 5.3.B |
-| C3-03 | Propagation at observation epochs | **Not Started** | No shared service | Depends on C1-08 |
-| C3-04 | Weighted nonlinear least-squares differential correction | **Not Started** | No fitter | Full implementation; Section 5.3.D |
-| C3-05 | Residual and geometry utilities with RA wrap | **Not Started** | Only raw DataFrame differences in `cmd_compare.py` | Shared residual library |
+| C3-03 | Propagation at observation epochs | **Partially implemented** | Reuses `propagate_trial_state` from C3 dynamics; reference epoch fixed at t=0, forward-only epochs >= 0 | Backward propagation; full C3 loader integration |
+| C3-04 | Weighted nonlinear least-squares differential correction | **Implemented** | `src/orbit_discovery/component3/optimizer.py` (NumPy-only LM); `tests/test_component3_optimizer.py` (29 tests, all pass) | None for baseline scope |
+| C3-05 | Residual and geometry utilities with RA wrap | **Implemented** | `src/orbit_discovery/component3/residuals.py` (Phase 3B); `tests/test_component3_residuals.py` (57 tests) | None for baseline scope |
 | C3-06 | Multi-start candidate generation | **Not Started** | No code | Section 5.3.E |
 | C3-07 | Candidate deduplication and ranking | **Not Started** | No code | Section 5.3.E |
-| C3-08 | Local covariance and uncertainty | **Not Started** | No code | Section 5.3.F |
-| C3-09 | Future orbit prediction | **Not Started** | No code | Section 5.3.G |
-| C3-10 | Standardised orbit-solution output | **Not Started** | No schema file | Section 8.6 |
-| C3-11 | C3 scientific validation | **Not Started** | No recovery tests | Noiseless recovery, noisy coverage, multi-seed |
+| C3-08 | Local covariance and uncertainty | **Not Started** | No code; Jacobian rank/condition analysis available in `tests/test_component3_estimation.py` | Full covariance; Section 5.3.F |
+| C3-09 | Future orbit prediction | **Partially implemented** | `predict_apparent_coordinates` available; `run_estimation` returns residuals at observation epochs only | Future-epoch prediction output; Section 5.3.G |
+| C3-10 | Standardised orbit-solution output | **Partially implemented** | `OrbitCandidate`, `BestFitResult`, `EstimationResult` models populated by `run_estimation`; `fit_metrics` floats only, `residuals` ndarrays only | Orbit-solution JSON schema; Section 8.6 |
+| C3-11 | C3 scientific validation | **Partially implemented** | `tests/test_component3_estimation.py` (13 tests incl. perturbed-guess recovery and scaled Jacobian rank-6 analysis) | Noiseless/noisy multi-seed recovery; cadence/arc sensitivity; RA wraparound case |
 
 ### 3.6 Component 4 — Intelligent observation selection
 
@@ -3008,6 +3008,7 @@ This table is append-only. Do not delete old entries. Each project change that a
 | **1.0** | **0.2.0** | **2026-11-13** | Initial living roadmap based on full repository inspection. Recorded: C1 and C2 implemented with foundation gaps; C3–C5 not started; truth leak in observation CSV; linear interpolation error 0.223″ median / 1.731″ max; 25.6% of epochs below 30° elongation; CLI dispatch exists but no console entry point; test suite 142 passed / 1 failed / 1 error under system Python and not runnable in `.venv`; import-time test side effects discovered and reverted. Established Phase 0–8 plan, Gate F/G3/G4, contracts, completion criteria and maintenance rules. Final consistency pass aligned effort totals, spelling/terminology and status-label usage, fixed table-field formatting, clarified oracle isolation, C5 success criteria and light-time/v2 sequencing, and cross-linked this roadmap from `README.md` and the historical refactoring plan. |
 | **1.0** | **0.2.2** | **2026-11-13** | Release v0.2.2: C1/C2 baseline stabilized and physically consistent. Stage 2.7 (End-to-End Integration) complete — 10/10 end-to-end integration tests pass; C1→C2 pipeline verified with truth separation. Stage 2.7.1 (Physical Consistency Audit) complete — Defect D-1 (MU mismatch) resolved: downstream analytic modules now use `MU_REBOUND = 39.476926421373` matching C1's REBOUND `sim.G`; element conversion round trip exact at machine precision (~4.4e-16 AU); observer velocity corrected to `sqrt(MU_REBOUND/r)` = 6.283 AU/yr at r=1 AU; C1 simulation physics untouched. Regression suite: 175 passed, 1 deselected, 0 failures. Components 3–5 not implemented. Version history is append-only; prior row retained. |
 | **1.0** | **0.4.0** | **2026-11-13** | Release v0.4.0: Component 3 Phase 3B residual calculation implemented, hardened, tested and released. Added `src/orbit_discovery/component3/residuals.py` (wrapped RA residuals, declination residuals, cos(dec) tangent-plane weighting applied exactly once using observed declination, arcsec conversion, normalization by per-observation sigmas, pole screening `|cos(dec)| >= 1e-12`, chi-square `r^T r`; NumPy-only, no optimizer/estimator/forward-model change, no new dependencies, no ground-truth access). Added `tests/test_component3_residuals.py` (57 tests). Phase 3A design approved; Phase 3B implemented/hardened/tested/approved; Phase 3C optimizer not started; Phases 4–8 pending. Regression suite: 280 passed, 1 deselected, 0 failures. Focused residual tests: 57 passed, 0 failed. Version history is append-only; prior rows retained. |
+| **1.0** | **0.4.1** | **2026-11-14** | Release v0.4.1: Component 3 Phase 3C Levenberg–Marquardt optimizer (`src/orbit_discovery/component3/optimizer.py`) implemented, hardened, tested and released; NumPy-only weighted nonlinear least-squares with parameter scaling (`s = [1,1,1,2π,2π,2π]`), forward-difference scaled Jacobian, adaptive damping, overflow/non-finite handling, residual-dimension validation, parameter validation, Jacobian accounting, exception propagation. Added `tests/test_component3_optimizer.py` (29 tests). Component 3 Phase 3D best-fit orbit estimation integration (`src/orbit_discovery/component3/estimation.py`) implemented, tested and released: `build_residual_function()` and `run_estimation()` orchestrating forward model + LM optimizer; dataset validation before propagation; physical-coordinate contract (res["x"] physical, no scaling); final-prediction efficiency; numerical-exception-only handlers; result-model mapping (residuals ndarrays only, fit_metrics floats only, diagnostics in `OrbitCandidate.metadata`). Added `tests/test_component3_estimation.py` (13 tests). Autonomous initial-guess generation, candidate generation, covariance reporting, Components 4–5 pending. Regression suite: 320 passed, 1 deselected, 0 failures; focused optimizer+estimation tests: 40 passed, 0 failed. Version history is append-only; prior rows retained. |
 
 ### 13.1 Change-log rules
 
